@@ -1,0 +1,15 @@
+# Netlify configuration for deployment
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Environment variables
+# Add these in Netlify dashboard under Site settings > Environment variables
+# VITE_GOOGLE_SHEETS_SCRIPT_URL=your_google_apps_script_url
+
