@@ -12,7 +12,7 @@ import {
   LucideIcon,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { googleSheets } from '@/integrations/google-sheets/client';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Feature {

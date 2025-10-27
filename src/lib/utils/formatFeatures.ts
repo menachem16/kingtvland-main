@@ -1,11 +1,9 @@
-import type { Json } from '@/integrations/supabase/types';
-
 /**
  * Formats feature data from database JSON to readable string array
  * @param features - JSON features from database
  * @returns Array of formatted feature strings
  */
-export const formatFeatures = (features: Json): string[] => {
+export const formatFeatures = (features: any): string[] => {
   if (Array.isArray(features)) {
     return features.filter((f): f is string => typeof f === 'string');
   }

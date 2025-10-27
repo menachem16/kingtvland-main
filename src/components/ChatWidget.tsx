@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
-import { supabase } from '@/integrations/supabase/client';
+import { googleSheets } from '@/integrations/google-sheets/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';

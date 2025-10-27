@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ShoppingCart, Trash2, CreditCard, Check, Percent, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { googleSheets } from '@/integrations/google-sheets/client';
 import { useToast } from '@/hooks/use-toast';
 import { couponCodeSchema } from '@/lib/validations';
 import { formatFeatures } from '@/lib/utils/formatFeatures';

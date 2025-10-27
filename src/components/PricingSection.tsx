@@ -6,7 +6,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/components/CartContext';
 import { useToast } from '@/hooks/use-toast';
 
-import type { Json } from '@/integrations/supabase/types';
 import { formatFeatures } from '@/lib/utils/formatFeatures';
 
 interface SubscriptionPlan {
@@ -14,7 +13,7 @@ interface SubscriptionPlan {
   name: string;
   description: string | null;
   price: number;
-  features: Json;
+  features: any;
   is_active: boolean;
 }
 
