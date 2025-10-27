@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/google-sheets/client';
+import { googleSheets } from '@/integrations/google-sheets/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -169,4 +169,5 @@ const AdminAuditTab = () => {
 };
 
 export default AdminAuditTab;
+
 

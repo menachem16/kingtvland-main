@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { supabase } from '@/integrations/google-sheets/client';
+import { googleSheets } from '@/integrations/google-sheets/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +12,6 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Save, X, Package, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import type { Json } ;
 import { planSchema, type PlanInput } from '@/lib/validations';
 
 interface SubscriptionPlan {
@@ -21,7 +20,7 @@ interface SubscriptionPlan {
   description: string | null;
   price: number;
   duration_months: number;
-  features: Json;
+  features: any;
   is_active: boolean;
   created_at: string;
 }
@@ -372,3 +371,4 @@ const AdminPlansTab = ({ onStatsUpdate }: AdminPlansTabProps) => {
 };
 
 export default AdminPlansTab;
+

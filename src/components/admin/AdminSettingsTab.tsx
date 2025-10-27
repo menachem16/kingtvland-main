@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/google-sheets/client';
+import { googleSheets } from '@/integrations/google-sheets/client';
 import { Settings, RefreshCw, Save, ExternalLink } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -211,4 +211,5 @@ const AdminSettingsTab = () => {
 };
 
 export default AdminSettingsTab;
+
 

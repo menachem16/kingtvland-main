@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/google-sheets/client';
+import { googleSheets } from '@/integrations/google-sheets/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -348,4 +348,5 @@ const AdminChatTab = () => {
 };
 
 export default AdminChatTab;
+
 

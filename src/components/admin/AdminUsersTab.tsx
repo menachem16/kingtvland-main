@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/google-sheets/client';
+import { googleSheets } from '@/integrations/google-sheets/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -227,3 +227,4 @@ const AdminUsersTab = ({ onStatsUpdate }: AdminUsersTabProps) => {
 };
 
 export default AdminUsersTab;
+
