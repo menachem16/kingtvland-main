@@ -2,8 +2,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { googleSheets } from '@/integrations/google-sheets/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Users, CreditCard, Package, MessageSquare, TrendingUp, DollarSign, Settings, Shield } from 'lucide-react';
 import AdminUsersTab from '@/components/admin/AdminUsersTab';
 import AdminPlansTab from '@/components/admin/AdminPlansTab';
@@ -26,7 +26,7 @@ const Admin = () => {
     totalUsers: 0,
     totalOrders: 0,
     totalRevenue: 0,
-    activePlans: 0
+    activePlans: 0,
   });
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -39,19 +39,30 @@ const Admin = () => {
   const fetchStats = async () => {
     try {
       const [usersResponse, ordersResponse, plansResponse] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact' }),
-        supabase.from('orders').select('amount', { count: 'exact' }),
-        supabase.from('subscription_plans').select('id', { count: 'exact' }).eq('is_active', true)
+        googleSheets.get<any[]>('?action=getAllUsers'),
+        googleSheets.get<any[]>('?action=getOrders&userId=all'),
+        googleSheets.get<any[]>('?action=getPlans'),
       ]);
 
-      const totalRevenue = ordersResponse.data?.reduce((sum, order) => 
-        sum + Number(order.amount), 0) || 0;
+      if (!usersResponse.success || !ordersResponse.success || !plansResponse.success) {
+        throw new Error(
+          usersResponse.message || ordersResponse.message || plansResponse.message || 'Failed to fetch stats'
+        );
+      }
+
+      const totalUsers = usersResponse.data.length || 0;
+      const totalOrders = ordersResponse.data.length || 0;
+      const totalRevenue = ordersResponse.data.reduce((sum: number, order: any) =>
+        sum + Number(order['סכום'] || order['amount'] || 0), 0); // Adjust column name
+      const activePlans = plansResponse.data.filter((plan: any) =>
+        plan['פעיל'] || plan['is_active']
+      ).length || 0;
 
       setStats({
-        totalUsers: usersResponse.count || 0,
-        totalOrders: ordersResponse.count || 0,
+        totalUsers,
+        totalOrders,
         totalRevenue,
-        activePlans: plansResponse.count || 0
+        activePlans,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -77,38 +88,34 @@ const Admin = () => {
       title: 'סך המשתמשים',
       value: stats.totalUsers.toLocaleString(),
       icon: Users,
-      description: 'משתמשים רשומים במערכת'
+      description: 'משתמשים רשומים במערכת',
     },
     {
       title: 'סך ההזמנות',
       value: stats.totalOrders.toLocaleString(),
       icon: CreditCard,
-      description: 'הזמנות שבוצעו במערכת'
+      description: 'הזמנות שבוצעו במערכת',
     },
     {
       title: 'סך ההכנסות',
       value: `₪${stats.totalRevenue.toLocaleString()}`,
       icon: DollarSign,
-      description: 'הכנסות כוללות'
+      description: 'הכנסות כוללות',
     },
     {
       title: 'תוכניות פעילות',
       value: stats.activePlans.toLocaleString(),
       icon: Package,
-      description: 'תוכניות מנוי זמינות'
-    }
+      description: 'תוכניות מנוי זמינות',
+    },
   ];
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-2 text-gradient">פאנל ניהול</h1>
-        <p className="text-muted-foreground text-lg">
-          ניהול המערכת והנתונים
-        </p>
+        <p className="text-muted-foreground text-lg">ניהול המערכת והנתונים</p>
       </div>
-
-      {/* Stats Overview */}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {statCards.map((stat, index) => (
           <Card key={index} className="glass border-0">
@@ -123,67 +130,23 @@ const Admin = () => {
           </Card>
         ))}
       </div>
-
-      {/* Management Tabs */}
       <Tabs defaultValue="users" className="space-y-6">
         <TabsList className="grid w-full grid-cols-7 glass">
-          <TabsTrigger value="users">
-            <Users className="h-4 w-4 ml-2" />
-            משתמשים
-          </TabsTrigger>
-          <TabsTrigger value="plans">
-            <Package className="h-4 w-4 ml-2" />
-            תוכניות
-          </TabsTrigger>
-          <TabsTrigger value="orders">
-            <CreditCard className="h-4 w-4 ml-2" />
-            הזמנות
-          </TabsTrigger>
-          <TabsTrigger value="coupons">
-            <TrendingUp className="h-4 w-4 ml-2" />
-            קופונים
-          </TabsTrigger>
-          <TabsTrigger value="chat">
-            <MessageSquare className="h-4 w-4 ml-2" />
-            צ'אטים
-          </TabsTrigger>
-          <TabsTrigger value="audit">
-            <Shield className="h-4 w-4 ml-2" />
-            ביקורת
-          </TabsTrigger>
-          <TabsTrigger value="settings">
-            <Settings className="h-4 w-4 ml-2" />
-            הגדרות
-          </TabsTrigger>
+          <TabsTrigger value="users"><Users className="h-4 w-4 ml-2" />משתמשים</TabsTrigger>
+          <TabsTrigger value="plans"><Package className="h-4 w-4 ml-2" />תוכניות</TabsTrigger>
+          <TabsTrigger value="orders"><CreditCard className="h-4 w-4 ml-2" />הזמנות</TabsTrigger>
+          <TabsTrigger value="coupons"><TrendingUp className="h-4 w-4 ml-2" />קופונים</TabsTrigger>
+          <TabsTrigger value="chat"><MessageSquare className="h-4 w-4 ml-2" />צ'אטים</TabsTrigger>
+          <TabsTrigger value="audit"><Shield className="h-4 w-4 ml-2" />ביקורת</TabsTrigger>
+          <TabsTrigger value="settings"><Settings className="h-4 w-4 ml-2" />הגדרות</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="users">
-          <AdminUsersTab onStatsUpdate={fetchStats} />
-        </TabsContent>
-
-        <TabsContent value="plans">
-          <AdminPlansTab onStatsUpdate={fetchStats} />
-        </TabsContent>
-
-        <TabsContent value="orders">
-          <AdminOrdersTab />
-        </TabsContent>
-
-        <TabsContent value="coupons">
-          <AdminCouponsTab />
-        </TabsContent>
-
-        <TabsContent value="chat">
-          <AdminChatTab />
-        </TabsContent>
-
-        <TabsContent value="audit">
-          <AdminAuditTab />
-        </TabsContent>
-
-        <TabsContent value="settings">
-          <AdminSettingsTab />
-        </TabsContent>
+        <TabsContent value="users"><AdminUsersTab onStatsUpdate={fetchStats} /></TabsContent>
+        <TabsContent value="plans"><AdminPlansTab onStatsUpdate={fetchStats} /></TabsContent>
+        <TabsContent value="orders"><AdminOrdersTab /></TabsContent>
+        <TabsContent value="coupons"><AdminCouponsTab /></TabsContent>
+        <TabsContent value="chat"><AdminChatTab /></TabsContent>
+        <TabsContent value="audit"><AdminAuditTab /></TabsContent>
+        <TabsContent value="settings"><AdminSettingsTab /></TabsContent>
       </Tabs>
     </div>
   );

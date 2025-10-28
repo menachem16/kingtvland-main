@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { googleSheets } from '@/integrations/google-sheets/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -16,11 +16,7 @@ interface Profile {
   phone: string | null;
   avatar_url: string | null;
   created_at: string;
-}
-
-interface UserRole {
-  user_id: string;
-  role: string;
+  is_admin?: boolean;
 }
 
 interface AdminUsersTabProps {
@@ -29,7 +25,6 @@ interface AdminUsersTabProps {
 
 const AdminUsersTab = ({ onStatsUpdate }: AdminUsersTabProps) => {
   const [users, setUsers] = useState<Profile[]>([]);
-  const [userRoles, setUserRoles] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
@@ -40,21 +35,17 @@ const AdminUsersTab = ({ onStatsUpdate }: AdminUsersTabProps) => {
 
   const fetchUsers = async () => {
     try {
-      const [profilesRes, rolesRes] = await Promise.all([
-        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('user_roles').select('user_id, role')
-      ]);
-
-      if (profilesRes.error) throw profilesRes.error;
-      setUsers(profilesRes.data || []);
-
-      // Build roles map
-      const rolesMap: Record<string, string[]> = {};
-      (rolesRes.data || []).forEach((role: UserRole) => {
-        if (!rolesMap[role.user_id]) rolesMap[role.user_id] = [];
-        rolesMap[role.user_id].push(role.role);
-      });
-      setUserRoles(rolesMap);
+      const usersData = await googleSheets.getAllUsers();
+      setUsers(usersData.map(user => ({
+        id: user.id,
+        user_id: user.id,
+        first_name: user.firstName,
+        last_name: user.lastName,
+        phone: user.phone,
+        avatar_url: user.avatarUrl,
+        is_admin: user.isAdmin,
+        created_at: user.joinDate || new Date().toISOString(),
+      })));
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -69,32 +60,19 @@ const AdminUsersTab = ({ onStatsUpdate }: AdminUsersTabProps) => {
 
   const toggleAdminStatus = async (userId: string, isAdmin: boolean) => {
     try {
-      if (isAdmin) {
-        // Remove admin role
-        const { error } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId)
-          .eq('role', 'admin');
-        
-        if (error) throw error;
-      } else {
-        // Add admin role
-        const { error } = await supabase
-          .from('user_roles')
-          .insert({ user_id: userId, role: 'admin' });
-        
-        if (error) throw error;
+      const result = await googleSheets.updateProfile(userId, {
+        isAdmin: !isAdmin,
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update admin status');
       }
-
-      // Refresh data
+      
       await fetchUsers();
-
       toast({
         title: 'עודכן בהצלחה',
         description: `סטטוס מנהל ${!isAdmin ? 'הוענק' : 'בוטל'} למשתמש`,
       });
-      
       onStatsUpdate();
     } catch (error) {
       console.error('Error updating admin status:', error);
@@ -138,9 +116,7 @@ const AdminUsersTab = ({ onStatsUpdate }: AdminUsersTabProps) => {
           <UserCheck className="h-5 w-5" />
           ניהול משתמשים
         </CardTitle>
-        <CardDescription>
-          ניהול והרשאות משתמשים במערכת
-        </CardDescription>
+        <CardDescription>ניהול והרשאות משתמשים במערכת</CardDescription>
         <div className="flex items-center gap-4 pt-4">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -151,9 +127,7 @@ const AdminUsersTab = ({ onStatsUpdate }: AdminUsersTabProps) => {
               className="pr-10"
             />
           </div>
-          <Badge variant="secondary">
-            {filteredUsers.length} משתמשים
-          </Badge>
+          <Badge variant="secondary">{filteredUsers.length} משתמשים</Badge>
         </div>
       </CardHeader>
       <CardContent>
@@ -192,15 +166,13 @@ const AdminUsersTab = ({ onStatsUpdate }: AdminUsersTabProps) => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {userRoles[user.user_id]?.includes('admin') && (
-                  <Badge variant="default">מנהל</Badge>
-                )}
+                {user.is_admin && <Badge variant="default">מנהל</Badge>}
                 <Button
-                  variant={userRoles[user.user_id]?.includes('admin') ? "destructive" : "default"}
+                  variant={user.is_admin ? 'destructive' : 'default'}
                   size="sm"
-                  onClick={() => toggleAdminStatus(user.user_id, userRoles[user.user_id]?.includes('admin'))}
+                  onClick={() => toggleAdminStatus(user.user_id, user.is_admin || false)}
                 >
-                  {userRoles[user.user_id]?.includes('admin') ? (
+                  {user.is_admin ? (
                     <>
                       <UserX className="h-4 w-4 ml-1" />
                       בטל מנהל
@@ -227,4 +199,3 @@ const AdminUsersTab = ({ onStatsUpdate }: AdminUsersTabProps) => {
 };
 
 export default AdminUsersTab;
-
