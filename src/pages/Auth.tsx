@@ -72,8 +72,8 @@ const Auth = () => {
     if (error) {
       toast({
         title: 'שגיאה ברישום',
-        description: error.message === 'User already registered' 
-          ? 'המשתמש כבר רשום במערכת' 
+        description: /User already exists/i.test(error.message)
+          ? 'המשתמש כבר רשום במערכת'
           : 'אירעה שגיאה ברישום',
         variant: 'destructive',
       });

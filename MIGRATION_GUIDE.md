@@ -56,23 +56,36 @@ VITE_GOOGLE_SHEETS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_SCRIPT_ID/
 1. Deploy the Google Apps Script (`google-apps-script/Code.gs`) as a Web App
 2. Get the Web App URL
 3. Add it to your environment variables
-4. Create the following sheets in your Google Spreadsheet:
-   - **Customers** - Extended columns including: מזהה, שם פרטי, שם משפחה, אימייל, סיסמה, טלפון, מנהל, תאריך הצטרפות, שם משתמש, סיסמת התחברות, נוצר בתאריך, המנוי מסתיים, ימים שנשארו, סוג מנוי
-   - **Plans** - Subscription plans data
-   - **Orders** - User orders data
-   - **Subscriptions** - User subscriptions data
+4. Create the following sheets (tabs) in your Google Spreadsheet with these headers:
+   - **Customers** (Hebrew headers supported):
+     - מזהה | שם פרטי | שם משפחה | אימייל | סיסמה | Password Salt | טלפון | מנהל | תאריך הצטרפות | שם משתמש | סיסמת התחברות | נוצר בתאריך | המנוי מסתיים | ימים שנשארו | סוג מנוי
+   - **Plans**:
+     - id | name | description | price | duration_months | features | is_active | created_at
+   - **Coupons**:
+     - id | code | discount_type | discount_value | max_uses | used_count | valid_from | valid_until | is_active | created_at
+   - **Orders**:
+     - id | user_id | amount | payment_status | created_at
+   - **Subscriptions**:
+     - id | user_id | plan_id | status | start_date | end_date
+   - **AuditLogs**:
+     - id | user_id | action | resource_type | resource_id | details | ip_address | user_agent | created_at
 
 ### Google Sheets Schema
 
 #### Customers Sheet
-| מזהה | שם פרטי | שם משפחה | אימייל | סיסמה | טלפון | מנהל | תאריך הצטרפות |
-|------|---------|----------|--------|--------|--------|------|----------------|
-| uuid | First   | Last     | email  | pass   | phone  | true/false | date |
+| מזהה | שם פרטי | שם משפחה | אימייל | סיסמה | Password Salt | טלפון | מנהל | תאריך הצטרפות | שם משתמש | סיסמת התחברות | נוצר בתאריך | המנוי מסתיים | ימים שנשארו | סוג מנוי |
+|------|---------|----------|--------|--------|---------------|--------|------|----------------|-----------|----------------|--------------|---------------|--------------|----------|
+
+Notes:
+- סיסמאות נשמרות כ־SHA-256 עם salt בעמודות `סיסמה` ו-`Password Salt`.
 
 #### Plans Sheet
-| מזהה | שם | תיאור | מחיר | תכונות | פעיל |
-|------|-----|-------|------|--------|------|
-| id   | name| desc  | price| features| true/false |
+| id | name | description | price | duration_months | features | is_active | created_at |
+|----|------|-------------|-------|------------------|----------|-----------|------------|
+
+#### Coupons Sheet
+| id | code | discount_type | discount_value | max_uses | used_count | valid_from | valid_until | is_active | created_at |
+|----|------|---------------|----------------|----------|------------|------------|-------------|-----------|------------|
 
 ## 📝 Implementation Pattern
 

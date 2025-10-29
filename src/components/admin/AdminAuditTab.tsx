@@ -32,29 +32,8 @@ const AdminAuditTab = () => {
 
   const fetchLogs = async () => {
     try {
-      // First get logs
-      const { data: logsData, error: logsError } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (logsError) throw logsError;
-
-      // Then get unique user IDs and fetch profiles
-      const userIds = [...new Set(logsData?.map(log => log.user_id) || [])];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name')
-        .in('user_id', userIds);
-
-      // Merge profiles with logs
-      const logsWithProfiles = logsData?.map(log => ({
-        ...log,
-        profiles: profilesData?.find(p => p.user_id === log.user_id) || null
-      })) || [];
-
-      setLogs(logsWithProfiles);
+      const rows = await googleSheets.getAuditLogs();
+      setLogs(rows as any);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
     } finally {

@@ -309,6 +309,110 @@ class GoogleSheetsClient {
     }
   }
 
+  // Plans CRUD
+  async createPlan(plan: { name: string; description?: string; price: number; duration_months: number; features?: string[]; is_active?: boolean; }): Promise<{ success: boolean; id?: string; error?: any }> {
+    if (!this.sheetsUrl) return { success: false, error: 'Google Sheets URL not configured' };
+    try {
+      const form = new URLSearchParams();
+      form.append('action', 'createPlan');
+      Object.entries(plan).forEach(([k,v]) => {
+        form.append(k, Array.isArray(v) ? JSON.stringify(v) : String(v ?? ''));
+      });
+      const res = await fetch(this.sheetsUrl, { method: 'POST', body: form });
+      const result = await res.json();
+      return { success: !!result.success, id: result?.data?.id, error: result.success ? undefined : result.message };
+    } catch (e) {
+      return { success: false, error: e };
+    }
+  }
+
+  async updatePlan(id: string, updates: Partial<{ name: string; description: string; price: number; duration_months: number; features: string[]; is_active: boolean; }>): Promise<{ success: boolean; error?: any }> {
+    if (!this.sheetsUrl) return { success: false, error: 'Google Sheets URL not configured' };
+    try {
+      const form = new URLSearchParams();
+      form.append('action', 'updatePlan');
+      form.append('id', id);
+      Object.entries(updates).forEach(([k,v]) => {
+        form.append(k, Array.isArray(v) ? JSON.stringify(v) : String(v ?? ''));
+      });
+      const res = await fetch(this.sheetsUrl, { method: 'POST', body: form });
+      const result = await res.json();
+      return { success: !!result.success, error: result.success ? undefined : result.message };
+    } catch (e) {
+      return { success: false, error: e };
+    }
+  }
+
+  async deletePlan(id: string): Promise<{ success: boolean; error?: any }> {
+    if (!this.sheetsUrl) return { success: false, error: 'Google Sheets URL not configured' };
+    try {
+      const form = new URLSearchParams();
+      form.append('action', 'deletePlan');
+      form.append('id', id);
+      const res = await fetch(this.sheetsUrl, { method: 'POST', body: form });
+      const result = await res.json();
+      return { success: !!result.success, error: result.success ? undefined : result.message };
+    } catch (e) {
+      return { success: false, error: e };
+    }
+  }
+
+  // Coupons CRUD
+  async getCoupons(): Promise<any[]> {
+    if (!this.sheetsUrl) return [];
+    try {
+      const res = await fetch(`${this.sheetsUrl}?action=getCoupons`);
+      const result = await res.json();
+      return result.success && Array.isArray(result.data) ? result.data : [];
+    } catch (e) {
+      console.error('Get coupons error:', e);
+      return [];
+    }
+  }
+
+  async upsertCoupon(coupon: { id?: string; code: string; discount_type: 'percentage'|'fixed'; discount_value: number; max_uses?: number|null; used_count?: number; valid_from: string; valid_until?: string|null; is_active: boolean; }): Promise<{ success: boolean; id?: string; error?: any }> {
+    if (!this.sheetsUrl) return { success: false, error: 'Google Sheets URL not configured' };
+    try {
+      const form = new URLSearchParams();
+      form.append('action', 'upsertCoupon');
+      Object.entries(coupon).forEach(([k,v]) => {
+        form.append(k, String(v ?? ''));
+      });
+      const res = await fetch(this.sheetsUrl, { method: 'POST', body: form });
+      const result = await res.json();
+      return { success: !!result.success, id: result?.data?.id, error: result.success ? undefined : result.message };
+    } catch (e) {
+      return { success: false, error: e };
+    }
+  }
+
+  async deleteCoupon(id: string): Promise<{ success: boolean; error?: any }> {
+    if (!this.sheetsUrl) return { success: false, error: 'Google Sheets URL not configured' };
+    try {
+      const form = new URLSearchParams();
+      form.append('action', 'deleteCoupon');
+      form.append('id', id);
+      const res = await fetch(this.sheetsUrl, { method: 'POST', body: form });
+      const result = await res.json();
+      return { success: !!result.success, error: result.success ? undefined : result.message };
+    } catch (e) {
+      return { success: false, error: e };
+    }
+  }
+
+  // Audit logs
+  async getAuditLogs(): Promise<any[]> {
+    if (!this.sheetsUrl) return [];
+    try {
+      const res = await fetch(`${this.sheetsUrl}?action=getAuditLogs`);
+      const result = await res.json();
+      return result.success && Array.isArray(result.data) ? result.data : [];
+    } catch (e) {
+      console.error('Get audit logs error:', e);
+      return [];
+    }
+  }
+
   // Profile by email
   async getUserProfileByEmail(email: string): Promise<Record<string, any> | null> {
     if (!this.sheetsUrl) return null;

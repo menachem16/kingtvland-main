@@ -38,14 +38,9 @@ export const CartDrawer = () => {
     }
 
     try {
-      const { data: coupon, error } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('code', couponCode.toUpperCase().trim())
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (error || !coupon) {
+      // Not implemented with Google Sheets; simulate not found
+      const coupon: any = null;
+      if (!coupon) {
         toast({
           title: 'קוד קופון לא תקין',
           description: 'הקופון לא קיים או אינו פעיל',
@@ -135,32 +130,11 @@ export const CartDrawer = () => {
     setIsProcessing(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-        body: {
-          planId: cartItems[0].plan.id,
-          couponCode: appliedCoupon?.code,
-        }
+      // Not implemented with Google Sheets; show demo message
+      toast({
+        title: "מצב הדגמה",
+        description: "תהליך תשלום אינו מחובר ל-Stripe בגרסה זו",
       });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data?.url) {
-        clearCart();
-        setIsOpen(false);
-        window.location.href = data.url;
-        
-        toast({
-          title: "מעבר לתשלום",
-          description: "אתה מועבר לדף התשלום הבטוח",
-        });
-      } else if (data?.message) {
-        toast({
-          title: "מצב הדגמה",
-          description: data.message,
-        });
-      }
     } catch (error) {
       console.error('Checkout error:', error);
       toast({

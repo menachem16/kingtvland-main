@@ -51,13 +51,16 @@ const AdminPlansTab = ({ onStatsUpdate }: AdminPlansTabProps) => {
 
   const fetchPlans = async () => {
     try {
-      const { data, error } = await supabase
-        .from('subscription_plans')
-        .select('*')
-        .order('price', { ascending: true });
-
-      if (error) throw error;
-      setPlans(data || []);
+      const data = await googleSheets.getSubscriptionPlans();
+      const normalized = (data as any[]).map((p) => ({
+        ...p,
+        price: Number(p.price || 0),
+        duration_months: Number(p.duration_months || 1),
+        features: typeof p.features === 'string' ? (() => { try { return JSON.parse(p.features); } catch { return []; } })() : (p.features || []),
+        is_active: String(p.is_active) === 'false' ? false : true,
+        created_at: p.created_at || new Date().toISOString(),
+      }));
+      setPlans(normalized as SubscriptionPlan[]);
     } catch (error) {
       console.error('Error fetching plans:', error);
       toast({
@@ -72,33 +75,18 @@ const AdminPlansTab = ({ onStatsUpdate }: AdminPlansTabProps) => {
 
   const savePlan = async (planData: Omit<SubscriptionPlan, 'id' | 'created_at'>) => {
     try {
-      let result;
       if (editingPlan) {
-        result = await supabase
-          .from('subscription_plans')
-          .update(planData)
-          .eq('id', editingPlan.id)
-          .select()
-          .single();
+        const { success, error } = await googleSheets.updatePlan(editingPlan.id, planData as any);
+        if (!success) throw error;
       } else {
-        result = await supabase
-          .from('subscription_plans')
-          .insert([planData])
-          .select()
-          .single();
+        const { success, error } = await googleSheets.createPlan(planData as any);
+        if (!success) throw error;
       }
-
-      if (result.error) throw result.error;
-
       await fetchPlans();
       setEditingPlan(null);
       setIsCreating(false);
       onStatsUpdate();
-
-      toast({
-        title: 'נשמר בהצלחה',
-        description: editingPlan ? 'התוכנית עודכנה' : 'התוכנית נוצרה',
-      });
+      toast({ title: 'נשמר בהצלחה', description: editingPlan ? 'התוכנית עודכנה' : 'התוכנית נוצרה' });
     } catch (error) {
       console.error('Error saving plan:', error);
       toast({
@@ -111,20 +99,11 @@ const AdminPlansTab = ({ onStatsUpdate }: AdminPlansTabProps) => {
 
   const deletePlan = async (planId: string) => {
     try {
-      const { error } = await supabase
-        .from('subscription_plans')
-        .delete()
-        .eq('id', planId);
-
-      if (error) throw error;
-
+      const { success, error } = await googleSheets.deletePlan(planId);
+      if (!success) throw error;
       setPlans(plans.filter(plan => plan.id !== planId));
       onStatsUpdate();
-
-      toast({
-        title: 'נמחק בהצלחה',
-        description: 'התוכנית נמחקה מהמערכת',
-      });
+      toast({ title: 'נמחק בהצלחה', description: 'התוכנית נמחקה מהמערכת' });
     } catch (error) {
       console.error('Error deleting plan:', error);
       toast({

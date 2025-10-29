@@ -35,6 +35,10 @@ function doGet(e) {
         return handleGetSubscription(e);
       case 'getPlans':
         return handleGetPlans(e);
+      case 'getCoupons':
+        return handleGetCoupons(e);
+      case 'getAuditLogs':
+        return handleGetAuditLogs(e);
       case 'getOrders':
         return handleGetOrders(e);
       case 'getAllUsers':
@@ -43,6 +47,12 @@ function doGet(e) {
       return handleGetChatRooms(e);
     case 'getMessages':
       return handleGetMessages(e);
+    case 'createChatRoom':
+      // Fallback support if client sends GET
+      return handleCreateChatRoom(e.parameter);
+    case 'sendMessage':
+      // Fallback support if client sends GET
+      return handleSendMessage(e.parameter);
       default:
         return createErrorResponse('Unknown action: ' + action);
     }
@@ -85,6 +95,16 @@ function doPost(e) {
         return handleCreateSubscription(requestData);
       case 'createOrder':
         return handleCreateOrder(requestData);
+      case 'createPlan':
+        return handleCreatePlan(requestData);
+      case 'updatePlan':
+        return handleUpdatePlan(requestData);
+      case 'deletePlan':
+        return handleDeletePlan(requestData);
+      case 'upsertCoupon':
+        return handleUpsertCoupon(requestData);
+      case 'deleteCoupon':
+        return handleDeleteCoupon(requestData);
     case 'createChatRoom':
       return handleCreateChatRoom(requestData);
     case 'sendMessage':
@@ -361,6 +381,194 @@ function handleGetPlans(e) {
   }
 }
 
+// Create Plan
+function handleCreatePlan(data) {
+  try {
+    const sheet = ensureSheetWithHeaders(PLANS_SHEET, ['id','name','description','price','duration_months','features','is_active','created_at']);
+    const id = Utilities.getUuid();
+    const row = [
+      id,
+      data.name || '',
+      data.description || '',
+      Number(data.price || 0),
+      parseInt(data.duration_months || 1, 10),
+      Array.isArray(data.features) ? JSON.stringify(data.features) : (data.features || ''),
+      String(data.is_active) === 'false' ? false : true,
+      new Date(),
+    ];
+    sheet.appendRow(row);
+    return createSuccessResponse({ id });
+  } catch (error) {
+    return createErrorResponse('Error: ' + error.toString());
+  }
+}
+
+// Update Plan
+function handleUpdatePlan(data) {
+  try {
+    const id = data.id;
+    if (!id) return createErrorResponse('id is required');
+    const sheet = ensureSheetWithHeaders(PLANS_SHEET, ['id','name','description','price','duration_months','features','is_active','created_at']);
+    const values = sheet.getDataRange().getValues();
+    if (values.length <= 1) return createErrorResponse('No plans');
+    const headers = values[0];
+    const idIdx = headers.indexOf('id');
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][idIdx] === id) {
+        const updates = {
+          name: data.name,
+          description: data.description,
+          price: data.price !== undefined ? Number(data.price) : undefined,
+          duration_months: data.duration_months !== undefined ? parseInt(data.duration_months, 10) : undefined,
+          features: data.features !== undefined ? (Array.isArray(data.features) ? JSON.stringify(data.features) : data.features) : undefined,
+          is_active: data.is_active !== undefined ? (String(data.is_active) === 'false' ? false : true) : undefined,
+        };
+        Object.keys(updates).forEach(function(k){
+          if (updates[k] === undefined) return;
+          const col = headers.indexOf(k);
+          if (col !== -1) sheet.getRange(i+1, col+1).setValue(updates[k]);
+        });
+        return createSuccessResponse({ updated: true });
+      }
+    }
+    return createErrorResponse('Plan not found');
+  } catch (error) {
+    return createErrorResponse('Error: ' + error.toString());
+  }
+}
+
+// Delete Plan
+function handleDeletePlan(data) {
+  try {
+    const id = data.id;
+    if (!id) return createErrorResponse('id is required');
+    const sheet = ensureSheetWithHeaders(PLANS_SHEET, ['id','name','description','price','duration_months','features','is_active','created_at']);
+    const values = sheet.getDataRange().getValues();
+    if (values.length <= 1) return createErrorResponse('No plans');
+    const headers = values[0];
+    const idIdx = headers.indexOf('id');
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][idIdx] === id) {
+        sheet.deleteRow(i+1);
+        return createSuccessResponse({ deleted: true });
+      }
+    }
+    return createErrorResponse('Plan not found');
+  } catch (error) {
+    return createErrorResponse('Error: ' + error.toString());
+  }
+}
+
+// Coupons
+function handleGetCoupons(e) {
+  try {
+    const sheet = ensureSheetWithHeaders('Coupons', ['id','code','discount_type','discount_value','max_uses','used_count','valid_from','valid_until','is_active','created_at']);
+    const values = sheet.getDataRange().getValues();
+    if (values.length <= 1) return createSuccessResponse([]);
+    const headers = values[0];
+    const rows = [];
+    for (let i = 1; i < values.length; i++) {
+      const obj = {};
+      headers.forEach(function(h, idx){
+        let v = values[i][idx];
+        if (v instanceof Date) v = v.toISOString();
+        obj[h] = v;
+      });
+      rows.push(obj);
+    }
+    return createSuccessResponse(rows);
+  } catch (error) {
+    return createErrorResponse('Error: ' + error.toString());
+  }
+}
+
+function handleUpsertCoupon(data) {
+  try {
+    const sheet = ensureSheetWithHeaders('Coupons', ['id','code','discount_type','discount_value','max_uses','used_count','valid_from','valid_until','is_active','created_at']);
+    const id = data.id || Utilities.getUuid();
+    const values = sheet.getDataRange().getValues();
+    const headers = values[0];
+    const idIdx = headers.indexOf('id');
+    let rowIndex = -1;
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][idIdx] === id) { rowIndex = i; break; }
+    }
+    const payload = {
+      id: id,
+      code: (data.code || '').toString().toUpperCase(),
+      discount_type: data.discount_type || 'percentage',
+      discount_value: Number(data.discount_value || 0),
+      max_uses: data.max_uses === null || data.max_uses === '' || data.max_uses === undefined ? '' : Number(data.max_uses),
+      used_count: data.used_count === undefined ? 0 : Number(data.used_count),
+      valid_from: data.valid_from ? new Date(data.valid_from) : '',
+      valid_until: data.valid_until ? new Date(data.valid_until) : '',
+      is_active: String(data.is_active) === 'false' ? false : true,
+      created_at: new Date(),
+    };
+    if (rowIndex === -1) {
+      sheet.appendRow(headers.map(function(h){ return payload[h] !== undefined ? payload[h] : ''; }));
+      return createSuccessResponse({ id });
+    } else {
+      headers.forEach(function(h, idx){
+        if (payload[h] === undefined) return;
+        sheet.getRange(rowIndex+1, idx+1).setValue(payload[h]);
+      });
+      return createSuccessResponse({ id, updated: true });
+    }
+  } catch (error) {
+    return createErrorResponse('Error: ' + error.toString());
+  }
+}
+
+function handleDeleteCoupon(data) {
+  try {
+    const sheet = ensureSheetWithHeaders('Coupons', ['id','code','discount_type','discount_value','max_uses','used_count','valid_from','valid_until','is_active','created_at']);
+    const id = data.id;
+    if (!id) return createErrorResponse('id is required');
+    const values = sheet.getDataRange().getValues();
+    const headers = values[0];
+    const idIdx = headers.indexOf('id');
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][idIdx] === id) {
+        sheet.deleteRow(i+1);
+        return createSuccessResponse({ deleted: true });
+      }
+    }
+    return createErrorResponse('Coupon not found');
+  } catch (error) {
+    return createErrorResponse('Error: ' + error.toString());
+  }
+}
+
+// Audit logs
+function handleGetAuditLogs(e) {
+  try {
+    const sheet = ensureSheetWithHeaders('AuditLogs', ['id','user_id','action','resource_type','resource_id','details','ip_address','user_agent','created_at']);
+    const values = sheet.getDataRange().getValues();
+    if (values.length <= 1) return createSuccessResponse([]);
+    const headers = values[0];
+    const rows = [];
+    for (let i = 1; i < values.length; i++) {
+      const obj = {};
+      headers.forEach(function(h, idx){
+        let v = values[i][idx];
+        if (v instanceof Date) v = v.toISOString();
+        // parse details JSON if looks like JSON
+        if (h === 'details' && typeof v === 'string' && v.trim().startsWith('{')) {
+          try { v = JSON.parse(v); } catch (e) {}
+        }
+        obj[h] = v;
+      });
+      rows.push(obj);
+    }
+    // sort desc by created_at
+    rows.sort(function(a,b){ return new Date(b.created_at||0) - new Date(a.created_at||0); });
+    return createSuccessResponse(rows);
+  } catch (error) {
+    return createErrorResponse('Error: ' + error.toString());
+  }
+}
+
 // Get Orders Handler
 function handleGetOrders(e) {
   try {
@@ -621,6 +829,9 @@ function handleUpdateProfile(data) {
     }
     if (typeof updates === 'string') {
       try { updates = JSON.parse(updates); } catch (e) {}
+    }
+    if (typeof updates !== 'object' || updates === null || Array.isArray(updates)) {
+      return createErrorResponse('Invalid updates format; expected JSON object');
     }
     
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);

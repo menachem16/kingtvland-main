@@ -50,9 +50,15 @@ const AdminCouponsTab = () => {
 
   const fetchCoupons = async () => {
     try {
-      // TODO: Implement coupon fetching from Google Sheets
-      // For now, return empty array
-      setCoupons([]);
+      const rows = await googleSheets.getCoupons();
+      const normalized = rows.map((c: any) => ({
+        ...c,
+        discount_value: Number(c.discount_value || 0),
+        max_uses: c.max_uses === '' || c.max_uses === null || c.max_uses === undefined ? null : Number(c.max_uses),
+        used_count: Number(c.used_count || 0),
+        is_active: String(c.is_active) === 'false' ? false : true,
+      })) as Coupon[];
+      setCoupons(normalized);
     } catch (error) {
       console.error('Error fetching coupons:', error);
       toast({
@@ -67,32 +73,23 @@ const AdminCouponsTab = () => {
 
   const saveCoupon = async (couponData: Omit<Coupon, 'id' | 'created_at' | 'used_count'>) => {
     try {
-      let result;
-      if (editingCoupon) {
-        result = await supabase
-          .from('coupons')
-          .update(couponData)
-          .eq('id', editingCoupon.id)
-          .select()
-          .single();
-      } else {
-        result = await supabase
-          .from('coupons')
-          .insert([{ ...couponData, used_count: 0 }])
-          .select()
-          .single();
-      }
-
-      if (result.error) throw result.error;
-
+      const payload = {
+        id: editingCoupon?.id,
+        code: couponData.code.toUpperCase(),
+        discount_type: couponData.discount_type as 'percentage' | 'fixed',
+        discount_value: couponData.discount_value,
+        max_uses: couponData.max_uses ?? null,
+        used_count: editingCoupon?.used_count ?? 0,
+        valid_from: couponData.valid_from,
+        valid_until: couponData.valid_until ?? null,
+        is_active: couponData.is_active,
+      };
+      const { success, error } = await googleSheets.upsertCoupon(payload as any);
+      if (!success) throw error;
       await fetchCoupons();
       setEditingCoupon(null);
       setIsCreating(false);
-
-      toast({
-        title: 'נשמר בהצלחה',
-        description: editingCoupon ? 'הקופון עודכן' : 'הקופון נוצר',
-      });
+      toast({ title: 'נשמר בהצלחה', description: editingCoupon ? 'הקופון עודכן' : 'הקופון נוצר' });
     } catch (error) {
       console.error('Error saving coupon:', error);
       toast({
@@ -105,19 +102,10 @@ const AdminCouponsTab = () => {
 
   const deleteCoupon = async (couponId: string) => {
     try {
-      const { error } = await supabase
-        .from('coupons')
-        .delete()
-        .eq('id', couponId);
-
-      if (error) throw error;
-
+      const { success, error } = await googleSheets.deleteCoupon(couponId);
+      if (!success) throw error;
       setCoupons(coupons.filter(coupon => coupon.id !== couponId));
-
-      toast({
-        title: 'נמחק בהצלחה',
-        description: 'הקופון נמחק מהמערכת',
-      });
+      toast({ title: 'נמחק בהצלחה', description: 'הקופון נמחק מהמערכת' });
     } catch (error) {
       console.error('Error deleting coupon:', error);
       toast({
