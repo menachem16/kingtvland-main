@@ -1,7 +1,7 @@
 # Google Apps Script Setup Instructions
 
 ## קבצים
-- `Code.gs` - הקוד הראשי של Apps Script -בדיקת מצב
+- `Code.gs` - הקוד הראשי של Apps Script
 
 ## שלבי ההתקנה
 
@@ -10,15 +10,7 @@
 2. לחץ על **Extensions** > **Apps Script**
 3. מחק את הקוד הקיים והעתק את הקוד מ-`Code.gs`
 
-### 2. עדכון ההגדרות
-ערוך את המשתנים הבאים בקוד:
-```javascript
-const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // https://xxxxx.supabase.co
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-const SHEET_NAME = 'Customers'; // שם הגיליון
-```
-
-### 3. פריסה כ-Web App
+### 2. פריסה כ-Web App
 1. לחץ על **Deploy** > **New deployment**
 2. בחר **Type**: "Web app"
 3. הגדר:
@@ -27,74 +19,36 @@ const SHEET_NAME = 'Customers'; // שם הגיליון
 4. לחץ **Deploy**
 5. העתק את ה-**Web App URL** - תצטרך אותו באפליקציה
 
-### 4. הרשאות
-- בפעם הראשונה תתבקש לאשר הרשאות
-- אשר גישה לגיליון ולחיבורים חיצוניים
+### 3. סכמת גיליונות
+- Customers: כולל העמודות הבאות: מזהה, שם פרטי, שם משפחה, אימייל, סיסמה, טלפון, מנהל, תאריך הצטרפות, שם משתמש, סיסמת התחברות, נוצר בתאריך, המנוי מסתיים, ימים שנשארו, סוג מנוי
+- Plans, Orders, (אופציונלי: ChatRooms, Messages)
 
-### 5. הוספת עמודות אימות (אופציונלי)
-אם הגיליון שלך עדיין לא כולל עמודות אימייל וסיסמה:
-1. בעורך Apps Script, לחץ על **Run** > **addAuthColumns**
-2. זה יוסיף עמודות "אימייל" ו"סיסמה" לגיליון
+### שימוש
 
-### 6. הגדרת סנכרון אוטומטי (אופציונלי)
-להפעלת סנכרון אוטומטי מ-Supabase כל שעה:
-1. בעורך Apps Script, לחץ על **Run** > **setupTriggers**
-2. זה ייצור trigger שמריץ את הסנכרון כל שעה
-
-## שימוש
-
-### אימות משתמש
-כדי לאמת משתמש, שלח בקשת GET ל-Web App URL:
+#### אימות משתמש
+בקשת GET:
 ```
-https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?email=user@example.com&password=123456
+https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=signin&email=user@example.com&password=123456
 ```
 
-תגובה מוצלחת:
-```json
-{
-  "success": true,
-  "message": "Authentication successful",
-  "data": {
-    "מזהה": "123",
-    "שם פרטי": "ישראל",
-    "אימייל": "user@example.com",
-    ...
-  }
-}
+#### הרשמה
+בקשת POST כ-URL-encoded form (ללא כותרות מותאמות):
+```
+action=signup&email=user@example.com&password=123456&firstName=ישראל&lastName=כהן
 ```
 
-### סנכרון נתונים
-כדי לסנכרן נתונים מהאפליקציה לגיליון, שלח בקשת POST:
-```javascript
-fetch('YOUR_WEB_APP_URL', {
-  method: 'POST',
-  body: JSON.stringify({
-    headers: ['מזהה', 'שם פרטי', ...],
-    customers: [
-      ['123', 'ישראל', ...],
-      ['456', 'דוד', ...]
-    ]
-  })
-});
+#### פרופיל לפי אימייל
 ```
+GET .../exec?action=getUserProfile&email=user@example.com
+```
+
+#### צ'אט
+- קבלת חדרים: `GET .../exec?action=getChatRooms&userId=USER_ID`
+- קבלת הודעות: `GET .../exec?action=getMessages&roomId=ROOM_ID`
+- יצירת חדר: `POST form: action=createChatRoom&userId=USER_ID&subject=SUBJECT`
+- שליחת הודעה: `POST form: action=sendMessage&roomId=ROOM_ID&senderId=USER_ID&content=TEXT&isAdmin=false`
 
 ## הערות חשובות
-
-1. **אבטחה**: הסיסמאות מאוחסנות בטקסט פשוט בגיליון. לשימוש בסיסי בלבד!
-2. **מגבלות**: Google Apps Script מוגבל ל-6 דקות זמן ריצה ו-20,000 בקשות ליום
-3. **CORS**: Web App תומך אוטומטית ב-CORS מכל מקור
-4. **עדכונים**: כל שינוי בקוד דורש deployment חדש (או שימוש ב-Test Deployment)
-
-## פתרון בעיות
-
-### השגיאה "Script function not found"
-- וודא ששמרת את הקוד לפני הריצה
-- נסה לרענן את הדף
-
-### "Authorization required"
-- אשר את ההרשאות בפעם הראשונה
-- וודא ש-"Who has access" מוגדר ל-"Anyone"
-
-### הנתונים לא מתעדכנים
-- בדוק את ה-Logs ב-Apps Script (View > Logs)
-- וודא ש-SUPABASE_URL ו-SUPABASE_ANON_KEY נכונים
+1. **CORS**: יש להימנע מבקשות preflight בצד הלקוח (לא לשלוח Content-Type מותאם בבקשות form)
+2. **הרשאות**: ודא ש-"Who has access" מוגדר ל-"Anyone"
+3. **פריסה מחדש**: כל שינוי בקוד דורש Deployment חדש

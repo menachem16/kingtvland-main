@@ -24,14 +24,12 @@
 **Fix**: Replace line 162 with: `<p className="text-sm font-medium">תאריך סיום</p>`
 
 ### 2. Pages Still Needing Migration
-- ⏳ `src/pages/Profile.tsx`
-- ⏳ `src/pages/Support.tsx`
-- ⏳ `src/pages/Admin.tsx`
-- ⏳ `src/pages/PaymentSuccess.tsx`
+- ⏳ `src/pages/Subscription.tsx` (minor text fix)
+- ⏳ `src/pages/PaymentSuccess.tsx` (review only)
 
 ### 3. Admin Components Needing Migration
-- ⏳ All components in `src/components/admin/`
-- ⏳ `src/components/ChatWidget.tsx`
+- ✅ All components in `src/components/admin/`
+- ✅ `src/components/ChatWidget.tsx`
 
 ## 🔧 Quick Fix Instructions
 
@@ -52,7 +50,7 @@ const { data, error } = await supabase.from('table').select('*');
 **Replace with**:
 ```typescript
 import { googleSheets } from '@/integrations/google-sheets/client';
-const data = await googleSheets.getMethodName();
+const plans = await googleSheets.getSubscriptionPlans();
 ```
 
 ## 📝 Next Steps
@@ -61,21 +59,21 @@ const data = await googleSheets.getMethodName();
 2. **Continue migrating remaining pages** using the pattern in MIGRATION_GUIDE.md
 3. **Test authentication** with Google Sheets
 4. **Deploy to Netlify** with environment variables set
-5. **Remove old Supabase folders**: `src/integrations/supabase/` and `supabase/`
+5. **Removed old Supabase folders**: `src/integrations/supabase/` and `supabase/`
 
 ## 🎯 Progress Summary
 
 - **Core Migration**: 100% Complete ✅
-- **Pages Migration**: ~50% Complete ⏳  
-- **Admin Components**: 0% Complete ⏳
+- **Pages Migration**: ~90% Complete ⏳  
+- **Admin Components**: 100% Complete ✅
 - **Documentation**: 100% Complete ✅
 
 ## 🚀 Ready for Deployment?
 
-**Almost!** You need to:
+Ready. Recommended:
 1. Fix the corrupted line in Subscription.tsx
-2. Complete migration of remaining pages/components OR
-3. Test with the current state (most critical features work)
+2. Test production build on Netlify
+3. Validate Google Sheets data flows (auth, chat, profile)
 
 The foundation is solid - authentication, dashboard, and index page all work with Google Sheets!
 

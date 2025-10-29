@@ -19,30 +19,30 @@
 ## ⚠️ Remaining Work
 
 ### 1. Pages That Still Need Updates
-- ⏳ `src/pages/Subscription.tsx` - Replace Supabase queries
-- ⏳ `src/pages/Profile.tsx` - Replace Supabase queries
-- ⏳ `src/pages/Support.tsx` - Replace Supabase queries
-- ⏳ `src/pages/Admin.tsx` - Replace Supabase queries
+- ⏳ `src/pages/Subscription.tsx` - Replace Supabase queries (minor)
+- ✅ `src/pages/Profile.tsx` - Uses Google Sheets
+- ✅ `src/pages/Support.tsx` - Uses Google Sheets chat API
+- ✅ `src/pages/Admin.tsx` - Uses Google Sheets
 
 ### 2. Admin Components That Need Updates
-- ⏳ `src/components/admin/AdminSettingsTab.tsx`
-- ⏳ `src/components/admin/AdminCouponsTab.tsx`
-- ⏳ `src/components/admin/AdminChatTab.tsx`
-- ⏳ `src/components/admin/AdminPlansTab.tsx`
-- ⏳ `src/components/admin/AdminOrdersTab.tsx`
-- ⏳ `src/components/admin/AdminUsersTab.tsx`
-- ⏳ `src/components/admin/AdminAuditTab.tsx`
+- ✅ `src/components/admin/AdminSettingsTab.tsx`
+- ✅ `src/components/admin/AdminCouponsTab.tsx`
+- ✅ `src/components/admin/AdminChatTab.tsx`
+- ✅ `src/components/admin/AdminPlansTab.tsx`
+- ✅ `src/components/admin/AdminOrdersTab.tsx`
+- ✅ `src/components/admin/AdminUsersTab.tsx`
+- ✅ `src/components/admin/AdminAuditTab.tsx`
 
 ### 3. Other Components
-- ⏳ `src/components/ChatWidget.tsx`
-- ⏳ `src/components/FeaturesSection.tsx`
-- ⏳ `src/components/HeroSection.tsx`
+- ✅ `src/components/ChatWidget.tsx`
+- ✅ `src/components/FeaturesSection.tsx`
+- ✅ `src/components/HeroSection.tsx`
 - ⏳ `src/components/PricingSection.tsx`
-- ⏳ `src/components/TestimonialsSection.tsx`
+- ✅ `src/components/TestimonialsSection.tsx`
 
-### 4. Files to Remove
-- ⏳ `src/integrations/supabase/` directory
-- ⏳ `supabase/` directory (all functions and migrations)
+### 4. Files Removed
+- ✅ `src/integrations/supabase/` directory
+- ✅ `supabase/` directory
 
 ## 🔧 Configuration Required
 
@@ -57,7 +57,7 @@ VITE_GOOGLE_SHEETS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_SCRIPT_ID/
 2. Get the Web App URL
 3. Add it to your environment variables
 4. Create the following sheets in your Google Spreadsheet:
-   - **Customers** - User data with columns: מזהה, שם פרטי, שם משפחה, אימייל, סיסמה, etc.
+   - **Customers** - Extended columns including: מזהה, שם פרטי, שם משפחה, אימייל, סיסמה, טלפון, מנהל, תאריך הצטרפות, שם משתמש, סיסמת התחברות, נוצר בתאריך, המנוי מסתיים, ימים שנשארו, סוג מנוי
    - **Plans** - Subscription plans data
    - **Orders** - User orders data
    - **Subscriptions** - User subscriptions data
@@ -92,7 +92,7 @@ const { data, error } = await supabase
 ```typescript
 import { googleSheets } from '@/integrations/google-sheets/client';
 
-const data = await googleSheets.getMethodName();
+const plans = await googleSheets.getSubscriptionPlans();
 ```
 
 ## 🚀 Deployment Steps

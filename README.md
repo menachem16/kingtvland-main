@@ -92,13 +92,13 @@ VITE_GOOGLE_SHEETS_SCRIPT_URL=YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL
 Add these environment variables in Netlify dashboard:
 - `VITE_GOOGLE_SHEETS_SCRIPT_URL` - Your Google Apps Script Web App URL
 
-### Google Sheets Schema
+## Google Sheets Schema
 
 Your spreadsheet needs these sheets:
 
 #### Customers Sheet
-| מזהה | שם פרטי | שם משפחה | אימייל | סיסמה | טלפון | מנהל | תאריך הצטרפות |
-|------|---------|----------|--------|--------|--------|------|----------------|
+| מזהה | שם פרטי | שם משפחה | אימייל | סיסמה | טלפון | מנהל | תאריך הצטרפות | שם משתמש | סיסמת התחברות | נוצר בתאריך | המנוי מסתיים | ימים שנשארו | סוג מנוי |
+|------|---------|----------|--------|--------|--------|------|----------------|-----------|----------------|--------------|---------------|--------------|----------|
 
 #### Plans Sheet
 | מזהה | שם | תיאור | מחיר | תכונות | פעיל |
@@ -169,16 +169,21 @@ All API endpoints are handled by Google Apps Script:
 
 ### Authentication
 - `GET ?action=signin&email=...&password=...` - Sign in
-- `GET ?action=signup&email=...&password=...` - Sign up
+- `POST action=signup&email=...&password=...&firstName=...&lastName=...` (URL-encoded form) - Sign up
 
 ### Data Retrieval
 - `GET ?action=getSubscription&userId=...` - Get user subscription
 - `GET ?action=getPlans` - Get all subscription plans
 - `GET ?action=getOrders&userId=...` - Get user orders
+- `GET ?action=getUserProfile&email=...` - Get user profile by email
+- `GET ?action=getChatRooms&userId=...` - Get user chat rooms
+- `GET ?action=getMessages&roomId=...` - Get room messages
 - `GET ?action=getAllUsers` - Get all users (Admin)
 
 ### Data Updates
-- `POST { action: 'updateProfile', userId, updates }` - Update profile
+- `POST { action: 'updateProfile', userId, updates }` - Update profile (JSON)
+- `POST form: action=createChatRoom&userId=...&subject=...` - Create chat room
+- `POST form: action=sendMessage&roomId=...&senderId=...&content=...&isAdmin=false` - Send message
 - `POST { action: 'createSubscription', ... }` - Create subscription
 - `POST { action: 'createOrder', ... }` - Create order
 
