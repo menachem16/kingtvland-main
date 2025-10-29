@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { googleSheets } from '@/integrations/google-sheets/client';
-import { User, Mail, Phone, Edit, Save, X } from 'lucide-react';
+import { User, Mail, Phone, Edit, Save, X, Calendar, Timer } from 'lucide-react';
 import { profileSchema, type ProfileInput } from '@/lib/validations';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -19,6 +19,7 @@ const Profile = () => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [subscriptionInfo, setSubscriptionInfo] = useState<{ plan?: string; endsAt?: string; daysLeft?: number } | null>(null);
 
   const form = useForm<ProfileInput>({
     resolver: zodResolver(profileSchema),
@@ -38,6 +39,26 @@ const Profile = () => {
       });
     }
   }, [profile, form]);
+
+  useEffect(() => {
+    const loadSubscription = async () => {
+      if (!user?.email) return;
+      const row = await googleSheets.getUserProfileByEmail(user.email);
+      if (!row) return;
+      const plan = row['סוג מנוי'] || row['Subscription Plan'] || undefined;
+      const endsAt = row['המנוי מסתיים'] || row['End Date'] || undefined;
+      let daysLeft: number | undefined = undefined;
+      if (endsAt) {
+        const end = new Date(endsAt);
+        const now = new Date();
+        daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      } else if (typeof row['ימים שנשארו'] === 'number') {
+        daysLeft = row['ימים שנשארו'];
+      }
+      setSubscriptionInfo({ plan, endsAt, daysLeft });
+    };
+    loadSubscription();
+  }, [user?.email]);
 
   const getUserInitials = () => {
     if (profile?.first_name && profile?.last_name) {
@@ -248,6 +269,18 @@ const Profile = () => {
                   {profile?.is_admin ? 'מנהל מערכת' : 'משתמש רגיל'}
                 </p>
               </div>
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">סוג מנוי</Label>
+              <p className="text-sm">{subscriptionInfo?.plan || 'ללא'}</p>
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Calendar className="h-4 w-4"/>המנוי מסתיים</Label>
+              <p className="text-sm">{subscriptionInfo?.endsAt ? new Date(subscriptionInfo.endsAt).toLocaleDateString('he-IL') : '—'}</p>
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Timer className="h-4 w-4"/>ימים שנשארו</Label>
+              <p className="text-sm">{subscriptionInfo?.daysLeft ?? '—'}</p>
+            </div>
             </div>
           </CardContent>
         </Card>

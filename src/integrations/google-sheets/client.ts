@@ -309,6 +309,22 @@ class GoogleSheetsClient {
     }
   }
 
+  // Profile by email
+  async getUserProfileByEmail(email: string): Promise<Record<string, any> | null> {
+    if (!this.sheetsUrl) return null;
+    try {
+      const url = `${this.sheetsUrl}?action=getUserProfile&email=${encodeURIComponent(email)}`;
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      const result = await response.json();
+      if (result.success) return result.data;
+      return null;
+    } catch (e) {
+      console.error('Get user profile error:', e);
+      return null;
+    }
+  }
+
   // Profile update
   async updateProfile(userId: string, updates: Partial<GoogleSheetsUser>): Promise<{ success: boolean; error?: any }> {
     if (!this.sheetsUrl) {
@@ -359,6 +375,79 @@ class GoogleSheetsClient {
     } catch (error) {
       console.error('Get all users error:', error);
       return [];
+    }
+  }
+
+  // Chat methods
+  async getChatRooms(userId: string): Promise<Array<any>> {
+    if (!this.sheetsUrl) return [];
+    try {
+      const url = `${this.sheetsUrl}?action=getChatRooms&userId=${encodeURIComponent(userId)}`;
+      const response = await fetch(url);
+      if (!response.ok) return [];
+      const result = await response.json();
+      return result.success && Array.isArray(result.data) ? result.data : [];
+    } catch (e) {
+      console.error('Get chat rooms error:', e);
+      return [];
+    }
+  }
+
+  async getMessages(roomId: string): Promise<Array<any>> {
+    if (!this.sheetsUrl) return [];
+    try {
+      const url = `${this.sheetsUrl}?action=getMessages&roomId=${encodeURIComponent(roomId)}`;
+      const response = await fetch(url);
+      if (!response.ok) return [];
+      const result = await response.json();
+      return result.success && Array.isArray(result.data) ? result.data : [];
+    } catch (e) {
+      console.error('Get messages error:', e);
+      return [];
+    }
+  }
+
+  async createChatRoom(userId: string, subject: string): Promise<{ success: boolean; room?: any; error?: any }> {
+    if (!this.sheetsUrl) return { success: false, error: 'Google Sheets URL not configured' };
+    try {
+      const form = new URLSearchParams();
+      form.append('action', 'createChatRoom');
+      form.append('userId', userId);
+      form.append('subject', subject);
+      const response = await fetch(this.sheetsUrl, {
+        method: 'POST',
+        body: form,
+      });
+      let result: any;
+      try { result = await response.json(); } catch { result = JSON.parse(await response.text()); }
+      if (result.success) return { success: true, room: result.data };
+      return { success: false, error: result.message };
+    } catch (e) {
+      console.error('Create chat room error:', e);
+      return { success: false, error: e };
+    }
+  }
+
+  async sendMessage(roomId: string, senderId: string, content: string, isAdmin: boolean): Promise<{ success: boolean; message?: any; error?: any }> {
+    if (!this.sheetsUrl) return { success: false, error: 'Google Sheets URL not configured' };
+    try {
+      const form = new URLSearchParams();
+      form.append('action', 'sendMessage');
+      form.append('roomId', roomId);
+      form.append('senderId', senderId);
+      form.append('content', content);
+      form.append('isAdmin', String(isAdmin));
+      const response = await fetch(this.sheetsUrl, {
+        method: 'POST',
+        body: form,
+      });
+      let result: any;
+      try { result = await response.json(); } catch { result = JSON.parse(await response.text()); }
+      if (result.success) return { success: true, message: result.data };
+      return { success: false, error: result.message };
+    } catch (e) {
+      console.error('Send message error:', e);
+      return { success: false, error: e };
     }
   }
 }

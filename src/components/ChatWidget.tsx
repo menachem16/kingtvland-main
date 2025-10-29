@@ -104,28 +104,14 @@ export const ChatWidget = () => {
       // Create chat room for general support
       if (user) {
         try {
-          const { data, error } = await supabase
-            .from('chat_rooms')
-            .insert({
-              user_id: user.id,
-              subject: option.label,
-              status: 'open'
-            })
-            .select()
-            .single();
-
-          if (error) throw error;
-          
-          setChatRoomId(data.id);
+          const result = await googleSheets.createChatRoom(user.id, option.label);
+          if (!result.success || !result.room) throw new Error(result.error);
+          setChatRoomId(result.room.id);
           setStage('chat');
           addMessage('מעולה! אפשר לכתוב לי כאן את השאלה שלך ונחזור אליך בהקדם', true);
         } catch (error) {
           console.error('Error creating chat room:', error);
-          toast({
-            title: 'שגיאה',
-            description: 'לא הצלחנו ליצור צ\'אט. נסה שוב',
-            variant: 'destructive'
-          });
+          toast({ title: 'שגיאה', description: 'לא הצלחנו ליצור צ\'אט. נסה שוב', variant: 'destructive' });
         }
       } else {
         addMessage('כדי לפתוח צ\'אט תמיכה, יש להתחבר תחילה', true);
@@ -188,25 +174,13 @@ export const ChatWidget = () => {
       case 'chat':
         if (chatRoomId && user) {
           try {
-            const { error } = await supabase
-              .from('messages')
-              .insert({
-                chat_room_id: chatRoomId,
-                sender_id: user.id,
-                content: messageText,
-                is_admin: false
-              });
-            
-            if (error) throw error;
+            const result = await googleSheets.sendMessage(chatRoomId, user.id, messageText, false);
+            if (!result.success) throw new Error(result.error);
             addMessage('ההודעה נשלחה! נחזור אליך בהקדם 👍', true);
           } catch (error) {
             console.error('Error sending message:', error);
             addMessage('שגיאה בשליחת ההודעה. נסה שוב', true);
-            toast({
-              title: 'שגיאה',
-              description: 'לא הצלחנו לשלוח את ההודעה. נסה שוב',
-              variant: 'destructive'
-            });
+            toast({ title: 'שגיאה', description: 'לא הצלחנו לשלוח את ההודעה. נסה שוב', variant: 'destructive' });
           }
         }
         break;

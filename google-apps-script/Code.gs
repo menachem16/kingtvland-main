@@ -5,6 +5,8 @@
 const SHEET_NAME = 'Customers'; // Name of the sheet
 const PLANS_SHEET = 'Plans'; // Name of subscription plans sheet
 const ORDERS_SHEET = 'Orders'; // Name of orders sheet
+const CHAT_ROOMS_SHEET = 'ChatRooms';
+const MESSAGES_SHEET = 'Messages';
 
 /**
  * Deploy as Web App:
@@ -27,6 +29,8 @@ function doGet(e) {
     switch(action) {
       case 'signin':
         return handleSignIn(e);
+    case 'getUserProfile':
+      return handleGetUserProfile(e);
       case 'getSubscription':
         return handleGetSubscription(e);
       case 'getPlans':
@@ -35,6 +39,10 @@ function doGet(e) {
         return handleGetOrders(e);
       case 'getAllUsers':
         return handleGetAllUsers(e);
+    case 'getChatRooms':
+      return handleGetChatRooms(e);
+    case 'getMessages':
+      return handleGetMessages(e);
       default:
         return createErrorResponse('Unknown action: ' + action);
     }
@@ -77,6 +85,10 @@ function doPost(e) {
         return handleCreateSubscription(requestData);
       case 'createOrder':
         return handleCreateOrder(requestData);
+    case 'createChatRoom':
+      return handleCreateChatRoom(requestData);
+    case 'sendMessage':
+      return handleSendMessage(requestData);
       default:
         return createErrorResponse('Unknown action: ' + action);
     }
@@ -170,10 +182,22 @@ function handleSignUp(requestData) {
     const data = sheet.getDataRange().getValues();
     const headers = data.length > 0 ? data[0] : [];
     
-    // Create headers if sheet is empty
+    // Ensure headers exist (extended schema)
+    const requiredHeaders = ['מזהה','שם פרטי','שם משפחה','אימייל','סיסמה','טלפון','מנהל','תאריך הצטרפות','שם משתמש','סיסמת התחברות','נוצר בתאריך','המנוי מסתיים','ימים שנשארו','סוג מנוי'];
     if (headers.length === 0) {
-      sheet.appendRow(['מזהה', 'שם פרטי', 'שם משפחה', 'אימייל', 'סיסמה', 'תאריך הצטרפות', 'מנהל']);
-      headers.push('מזהה', 'שם פרטי', 'שם משפחה', 'אימייל', 'סיסמה', 'תאריך הצטרפות', 'מנהל');
+      sheet.appendRow(requiredHeaders);
+      requiredHeaders.forEach(h => headers.push(h));
+    } else {
+      // Add any missing headers to the end
+      const missing = requiredHeaders.filter(h => headers.indexOf(h) === -1);
+      if (missing.length > 0) {
+        const newHeaders = headers.concat(missing);
+        sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+        // update headers array reference
+        while (headers.length < newHeaders.length) {
+          headers.push(newHeaders[headers.length]);
+        }
+      }
     }
     
     const emailColumnIndex = headers.indexOf('אימייל') !== -1 ? headers.indexOf('אימייל') : headers.indexOf('Email');
@@ -196,8 +220,15 @@ function handleSignUp(requestData) {
     const lastNameColumnIndex = headers.indexOf('שם משפחה') !== -1 ? headers.indexOf('שם משפחה') : headers.indexOf('Last Name');
     const emailColIndex = headers.indexOf('אימייל') !== -1 ? headers.indexOf('אימייל') : headers.indexOf('Email');
     const passwordColIndex = headers.indexOf('סיסמה') !== -1 ? headers.indexOf('סיסמה') : headers.indexOf('Password');
-    const dateColumnIndex = headers.indexOf('תאריך הצטרפות') !== -1 ? headers.indexOf('תאריך הצטרפות') : headers.indexOf('Join Date');
-    const adminColumnIndex = headers.indexOf('מנהל') !== -1 ? headers.indexOf('מנהל') : headers.indexOf('Admin');
+    const dateColumnIndex = headers.indexOf('תאריך הצטרפות');
+    const adminColumnIndex = headers.indexOf('מנהל');
+    const phoneColumnIndex = headers.indexOf('טלפון');
+    const usernameColIndex = headers.indexOf('שם משתמש');
+    const loginPassColIndex = headers.indexOf('סיסמת התחברות');
+    const createdAtColIndex = headers.indexOf('נוצר בתאריך');
+    const subEndsColIndex = headers.indexOf('המנוי מסתיים');
+    const daysLeftColIndex = headers.indexOf('ימים שנשארו');
+    const planTypeColIndex = headers.indexOf('סוג מנוי');
     
     // Create row data based on header positions
     const rowData = new Array(headers.length);
@@ -208,6 +239,13 @@ function handleSignUp(requestData) {
     if (passwordColIndex !== -1) rowData[passwordColIndex] = password;
     if (dateColumnIndex !== -1) rowData[dateColumnIndex] = joinDate;
     if (adminColumnIndex !== -1) rowData[adminColumnIndex] = isAdmin;
+    if (phoneColumnIndex !== -1) rowData[phoneColumnIndex] = '';
+    if (usernameColIndex !== -1) rowData[usernameColIndex] = email;
+    if (loginPassColIndex !== -1) rowData[loginPassColIndex] = '';
+    if (createdAtColIndex !== -1) rowData[createdAtColIndex] = new Date();
+    if (subEndsColIndex !== -1) rowData[subEndsColIndex] = '';
+    if (daysLeftColIndex !== -1) rowData[daysLeftColIndex] = '';
+    if (planTypeColIndex !== -1) rowData[planTypeColIndex] = '';
     
     // Fill empty cells with empty string
     for (let i = 0; i < rowData.length; i++) {
@@ -372,6 +410,170 @@ function handleGetAllUsers(e) {
   }
 }
 
+function ensureSheetWithHeaders(sheetName, headers) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  }
+  const data = sheet.getDataRange().getValues();
+  if (data.length === 0) {
+    sheet.appendRow(headers);
+  } else {
+    const existingHeaders = data[0];
+    const missing = headers.filter(h => existingHeaders.indexOf(h) === -1);
+    if (missing.length > 0) {
+      const newHeaders = existingHeaders.concat(missing);
+      sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+    }
+  }
+  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+}
+
+// Chat: Get chat rooms for a user
+function handleGetChatRooms(e) {
+  try {
+    const userId = e.parameter.userId;
+    if (!userId) return createErrorResponse('userId is required');
+    const sheet = ensureSheetWithHeaders(CHAT_ROOMS_SHEET, ['id','user_id','subject','status','created_at']);
+    const values = sheet.getDataRange().getValues();
+    if (values.length <= 1) return createSuccessResponse([]);
+    const headers = values[0];
+    const userIdIdx = headers.indexOf('user_id');
+    const rows = [];
+    for (let i = 1; i < values.length; i++) {
+      if (!values[i][userIdIdx]) continue;
+      if (values[i][userIdIdx].toString() !== userId.toString()) continue;
+      const obj = {};
+      headers.forEach((h, idx) => {
+        let v = values[i][idx];
+        if (v instanceof Date) v = v.toISOString();
+        obj[h] = v;
+      });
+      rows.push(obj);
+    }
+    // Sort desc by created_at
+    rows.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return createSuccessResponse(rows);
+  } catch (err) {
+    return createErrorResponse('Error: ' + err.toString());
+  }
+}
+
+// Chat: Get messages for a room
+function handleGetMessages(e) {
+  try {
+    const roomId = e.parameter.roomId;
+    if (!roomId) return createErrorResponse('roomId is required');
+    const sheet = ensureSheetWithHeaders(MESSAGES_SHEET, ['id','chat_room_id','sender_id','content','is_admin','created_at']);
+    const values = sheet.getDataRange().getValues();
+    if (values.length <= 1) return createSuccessResponse([]);
+    const headers = values[0];
+    const roomIdIdx = headers.indexOf('chat_room_id');
+    const rows = [];
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][roomIdIdx] && values[i][roomIdIdx].toString() === roomId.toString()) {
+        const obj = {};
+        headers.forEach((h, idx) => {
+          let v = values[i][idx];
+          if (v instanceof Date) v = v.toISOString();
+          obj[h] = v;
+        });
+        rows.push(obj);
+      }
+    }
+    // Sort asc by created_at
+    rows.sort((a,b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return createSuccessResponse(rows);
+  } catch (err) {
+    return createErrorResponse('Error: ' + err.toString());
+  }
+}
+
+// Chat: Create chat room
+function handleCreateChatRoom(data) {
+  try {
+    const userId = data.userId;
+    const subject = data.subject || '';
+    if (!userId) return createErrorResponse('userId is required');
+    const sheet = ensureSheetWithHeaders(CHAT_ROOMS_SHEET, ['id','user_id','subject','status','created_at']);
+    const id = Utilities.getUuid();
+    const now = new Date();
+    const row = [id, userId, subject, 'open', now];
+    sheet.appendRow(row);
+    return createSuccessResponse({ id, user_id: userId, subject, status: 'open', created_at: now.toISOString() });
+  } catch (err) {
+    return createErrorResponse('Error: ' + err.toString());
+  }
+}
+
+// Chat: Send message
+function handleSendMessage(data) {
+  try {
+    const roomId = data.roomId;
+    const senderId = data.senderId;
+    const content = data.content;
+    const isAdmin = !!data.isAdmin;
+    if (!roomId || !senderId || !content) return createErrorResponse('roomId, senderId, content are required');
+    const sheet = ensureSheetWithHeaders(MESSAGES_SHEET, ['id','chat_room_id','sender_id','content','is_admin','created_at']);
+    const id = Utilities.getUuid();
+    const now = new Date();
+    const row = [id, roomId, senderId, content, isAdmin, now];
+    sheet.appendRow(row);
+    return createSuccessResponse({ id, chat_room_id: roomId, sender_id: senderId, content, is_admin: isAdmin, created_at: now.toISOString() });
+  } catch (err) {
+    return createErrorResponse('Error: ' + err.toString());
+  }
+}
+
+// Get User Profile by email
+function handleGetUserProfile(e) {
+  try {
+    const email = e.parameter.email;
+    if (!email) {
+      return createErrorResponse('Email is required');
+    }
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    if (!sheet) {
+      return createErrorResponse('Sheet not found');
+    }
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) {
+      return createSuccessResponse(null);
+    }
+    const headers = data[0];
+    const emailColumnIndex = headers.indexOf('אימייל') !== -1 ? headers.indexOf('אימייל') : headers.indexOf('Email');
+    if (emailColumnIndex === -1) {
+      return createErrorResponse('Email column not found');
+    }
+    for (let i = 1; i < data.length; i++) {
+      const rowEmail = data[i][emailColumnIndex];
+      if (rowEmail && rowEmail.toString().toLowerCase() === email.toLowerCase()) {
+        const rowObj = {};
+        headers.forEach((header, index) => {
+          let value = data[i][index];
+          if (value instanceof Date) value = value.toISOString();
+          rowObj[header] = value;
+        });
+        // compute days remaining if possible
+        const endDateIdx = headers.indexOf('המנוי מסתיים');
+        if (endDateIdx !== -1 && data[i][endDateIdx]) {
+          const endDate = new Date(data[i][endDateIdx]);
+          const now = new Date();
+          const diffMs = endDate.getTime() - now.getTime();
+          const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          rowObj['ימים שנשארו'] = days;
+        }
+        return createSuccessResponse(rowObj);
+      }
+    }
+    return createSuccessResponse(null);
+  } catch (error) {
+    Logger.log('Error in handleGetUserProfile: ' + error.toString());
+    return createErrorResponse('Error: ' + error.toString());
+  }
+}
+
 // Update Profile Handler
 function handleUpdateProfile(data) {
   try {
@@ -382,8 +584,8 @@ function handleUpdateProfile(data) {
       return createErrorResponse('UserId and updates are required');
     }
     
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-    if (!sheet) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sheet) {
       return createErrorResponse('Sheet not found');
     }
     

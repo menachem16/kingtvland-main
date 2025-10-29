@@ -49,14 +49,8 @@ const Support = () => {
 
   const fetchChatRooms = async () => {
     try {
-      const { data, error } = await supabase
-        .from('chat_rooms')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setChatRooms(data || []);
+      const rooms = await googleSheets.getChatRooms(user!.id);
+      setChatRooms(rooms as any);
     } catch (error) {
       console.error('Error fetching chat rooms:', error);
     } finally {
@@ -66,16 +60,9 @@ const Support = () => {
 
   const fetchMessages = async () => {
     if (!selectedRoom) return;
-
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('chat_room_id', selectedRoom)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setMessages(data || []);
+      const msgs = await googleSheets.getMessages(selectedRoom);
+      setMessages(msgs as any);
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -83,26 +70,9 @@ const Support = () => {
 
   const subscribeToMessages = () => {
     if (!selectedRoom) return;
-
-    const channel = supabase
-      .channel(`messages:${selectedRoom}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `chat_room_id=eq.${selectedRoom}`
-        },
-        (payload) => {
-          setMessages(prev => [...prev, payload.new as Message]);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Polling every 5s
+    const id = setInterval(fetchMessages, 5000);
+    return () => clearInterval(id);
   };
 
   const createChatRoom = async () => {
@@ -116,33 +86,15 @@ const Support = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('chat_rooms')
-        .insert({
-          user_id: user?.id,
-          subject: newSubject,
-          status: 'open'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setChatRooms([data, ...chatRooms]);
-      setSelectedRoom(data.id);
+      const result = await googleSheets.createChatRoom(user!.id, newSubject);
+      if (!result.success || !result.room) throw new Error(result.error);
+      setChatRooms([result.room, ...chatRooms]);
+      setSelectedRoom(result.room.id);
       setNewSubject('');
-      
-      toast({
-        title: 'הצלחה',
-        description: 'צ\'אט נוצר בהצלחה'
-      });
+      toast({ title: 'הצלחה', description: 'צ\'אט נוצר בהצלחה' });
     } catch (error) {
       console.error('Error creating chat room:', error);
-      toast({
-        title: 'שגיאה',
-        description: 'שגיאה ביצירת צ\'אט',
-        variant: 'destructive'
-      });
+      toast({ title: 'שגיאה', description: 'שגיאה ביצירת צ\'אט', variant: 'destructive' });
     }
   };
 
@@ -150,17 +102,10 @@ const Support = () => {
     if (!newMessage.trim() || !selectedRoom) return;
 
     try {
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          chat_room_id: selectedRoom,
-          sender_id: user?.id,
-          content: newMessage,
-          is_admin: false
-        });
-
-      if (error) throw error;
+      const result = await googleSheets.sendMessage(selectedRoom, user!.id, newMessage, false);
+      if (!result.success) throw new Error(result.error);
       setNewMessage('');
+      await fetchMessages();
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
