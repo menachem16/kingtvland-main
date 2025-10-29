@@ -164,36 +164,39 @@ class GoogleSheetsClient {
     try {
       console.log('📝 מנסה להירשם:', email);
       
+      // Use URL-encoded form to avoid CORS preflight
+      const form = new URLSearchParams();
+      form.append('action', 'signup');
+      form.append('email', email);
+      form.append('password', password);
+      form.append('firstName', firstName);
+      form.append('lastName', lastName);
+      
       const response = await fetch(this.sheetsUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        mode: 'cors',
-        body: JSON.stringify({
-          action: 'signup',
-          email,
-          password,
-          firstName,
-          lastName,
-        }),
+        // Do NOT set Content-Type header explicitly to keep it a simple request
+        body: form,
+        redirect: 'follow',
       });
 
       console.log('📥 Signup response status:', response.status);
 
-      const contentType = response.headers.get('content-type');
-      if (!contentType?.includes('application/json')) {
+      // Try to parse JSON; Apps Script may not set JSON content-type for form posts
+      let result: any;
+      try {
+        result = await response.json();
+      } catch (_) {
         const text = await response.text();
-        console.error('❌ Expected JSON but got:', contentType);
-        return { 
-          user: null, 
-          error: { 
-            message: 'Server returned non-JSON response' 
-          } 
-        };
+        try {
+          result = JSON.parse(text);
+        } catch (e) {
+          console.error('❌ Signup non-JSON response:', text.substring(0, 200));
+          return {
+            user: null,
+            error: { message: 'Server returned non-JSON response' },
+          };
+        }
       }
-
-      const result = await response.json();
       console.log('✅ Signup response:', result.success ? 'Success' : 'Failed');
 
       if (result.success && result.data) {
