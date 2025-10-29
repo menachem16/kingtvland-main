@@ -11,8 +11,6 @@ import {
   Crown,
   LucideIcon,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { googleSheets } from '@/integrations/google-sheets/client';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Feature {
@@ -35,20 +33,56 @@ const iconMap: Record<string, LucideIcon> = {
   Zap,
 };
 
+// Static features data
+const defaultFeatures: Feature[] = [
+  {
+    id: '1',
+    title: 'מעל 500 ערוצים',
+    description: 'גישה לכל הערוצים המובילים בישראל ובעולם',
+    icon: 'Play',
+    gradient: 'from-blue-500 to-purple-500'
+  },
+  {
+    id: '2',
+    title: 'איכות HD/4K',
+    description: 'צפייה באיכות גבוהה ללא הפרעות',
+    icon: 'Zap',
+    gradient: 'from-green-500 to-teal-500'
+  },
+  {
+    id: '3',
+    title: 'תמיכה 24/7',
+    description: 'צוות תמיכה זמין בכל עת לעזור לך',
+    icon: 'Headphones',
+    gradient: 'from-orange-500 to-red-500'
+  },
+  {
+    id: '4',
+    title: 'מספר מכשירים',
+    description: 'צפה במספר מכשירים בו זמנית',
+    icon: 'Smartphone',
+    gradient: 'from-purple-500 to-pink-500'
+  },
+  {
+    id: '5',
+    title: 'ערוצים ישראליים',
+    description: 'כל הערוצים הישראליים במקום אחד',
+    icon: 'Globe',
+    gradient: 'from-cyan-500 to-blue-500'
+  },
+  {
+    id: '6',
+    title: 'פרימיום',
+    description: 'גישה לכל תוכניות הפרימיום',
+    icon: 'Crown',
+    gradient: 'from-yellow-500 to-orange-500'
+  },
+];
+
 const FeaturesSection = () => {
-  const { data: features, isLoading } = useQuery({
-    queryKey: ['features'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('features')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
-      
-      if (error) throw error;
-      return data as Feature[];
-    },
-  });
+  // Use static features instead of Supabase
+  const features = defaultFeatures;
+  const isLoading = false;
   return (
     <section className="py-20 px-4 bg-muted/20">
       <div className="container mx-auto">

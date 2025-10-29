@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { googleSheets } from '@/integrations/google-sheets/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +32,7 @@ interface ChatRoom {
 
 const AdminChatTab = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -51,32 +53,16 @@ const AdminChatTab = () => {
 
   const fetchChatRooms = async () => {
     try {
-      const { data, error } = await supabase
-        .from('chat_rooms')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Fetch profiles separately
-      const userIds = data?.map(room => room.user_id) || [];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('user_id, first_name, last_name')
-        .in('user_id', userIds);
-
-      // Merge profiles with chat rooms
-      const chatRoomsWithProfiles = data?.map(room => ({
-        ...room,
-        profiles: profilesData?.find(p => p.user_id === room.user_id) || {
-          first_name: '',
-          last_name: ''
-        }
-      })) || [];
-
-      setChatRooms(chatRoomsWithProfiles);
+      // TODO: Implement chat rooms with Google Sheets
+      // For now, return empty array
+      setChatRooms([]);
     } catch (error) {
       console.error('Error fetching chat rooms:', error);
+      toast({
+        title: 'שגיאה',
+        description: 'לא ניתן לטעון את רשימת הצ\'אטים',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }
@@ -86,45 +72,28 @@ const AdminChatTab = () => {
     if (!selectedRoom) return;
 
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('chat_room_id', selectedRoom)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setMessages(data || []);
+      // TODO: Implement message fetching from Google Sheets
+      setMessages([]);
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
   };
 
   const subscribeToMessages = () => {
+    // Real-time subscriptions not available with Google Sheets
+    // Use polling or implement refresh button instead
     if (!selectedRoom) return;
-
-    const channel = supabase
-      .channel(`admin-messages:${selectedRoom}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `chat_room_id=eq.${selectedRoom}`
-        },
-        (payload) => {
-          setMessages(prev => [...prev, payload.new as Message]);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    
+    // Poll for new messages every 5 seconds
+    const interval = setInterval(() => {
+      fetchMessages();
+    }, 5000);
+    
+    return () => clearInterval(interval);
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedRoom) return;
+    if (!newMessage.trim() || !selectedRoom || !user) return;
 
     // Validate message
     const validation = chatMessageSchema.safeParse({ content: newMessage });
@@ -140,24 +109,12 @@ const AdminChatTab = () => {
     setIsSending(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          chat_room_id: selectedRoom,
-          sender_id: user?.id,
-          content: newMessage,
-          is_admin: true
-        });
-
-      if (error) throw error;
-      setNewMessage('');
-      
+      // TODO: Implement message sending to Google Sheets
       toast({
-        title: 'הצלחה',
-        description: 'ההודעה נשלחה בהצלחה'
+        title: 'מידע',
+        description: 'פונקציונליות הצ\'אט תהיה זמינה בקרוב',
       });
+      setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -172,13 +129,7 @@ const AdminChatTab = () => {
 
   const updateRoomStatus = async (roomId: string, status: string) => {
     try {
-      const { error } = await supabase
-        .from('chat_rooms')
-        .update({ status })
-        .eq('id', roomId);
-
-      if (error) throw error;
-
+      // TODO: Implement status update with Google Sheets
       setChatRooms(rooms =>
         rooms.map(room =>
           room.id === roomId ? { ...room, status } : room

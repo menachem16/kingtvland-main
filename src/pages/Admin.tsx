@@ -38,24 +38,16 @@ const Admin = () => {
 
   const fetchStats = async () => {
     try {
-      const [usersResponse, ordersResponse, plansResponse] = await Promise.all([
-        googleSheets.get<any[]>('?action=getAllUsers'),
-        googleSheets.get<any[]>('?action=getOrders&userId=all'),
-        googleSheets.get<any[]>('?action=getPlans'),
+      const [users, plans] = await Promise.all([
+        googleSheets.getAllUsers(),
+        googleSheets.getSubscriptionPlans(),
       ]);
 
-      if (!usersResponse.success || !ordersResponse.success || !plansResponse.success) {
-        throw new Error(
-          usersResponse.message || ordersResponse.message || plansResponse.message || 'Failed to fetch stats'
-        );
-      }
-
-      const totalUsers = usersResponse.data.length || 0;
-      const totalOrders = ordersResponse.data.length || 0;
-      const totalRevenue = ordersResponse.data.reduce((sum: number, order: any) =>
-        sum + Number(order['סכום'] || order['amount'] || 0), 0); // Adjust column name
-      const activePlans = plansResponse.data.filter((plan: any) =>
-        plan['פעיל'] || plan['is_active']
+      const totalUsers = users.length || 0;
+      const totalOrders = 0; // TODO: Implement getAllOrders if needed
+      const totalRevenue = 0; // TODO: Calculate from orders
+      const activePlans = plans.filter((plan: any) => 
+        plan.is_active === true || plan['פעיל'] === true || plan['פעיל'] === 'TRUE'
       ).length || 0;
 
       setStats({

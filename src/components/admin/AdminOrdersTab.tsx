@@ -32,13 +32,9 @@ const AdminOrdersTab = () => {
 
   const fetchOrders = async () => {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setOrders(data || []);
+      // TODO: Implement getAllOrders method in Google Sheets client
+      // For now, return empty array
+      setOrders([]);
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast({

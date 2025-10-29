@@ -30,41 +30,11 @@ const AdminSettingsTab = () => {
   };
 
   const handleSyncToSheets = async () => {
-    if (!googleApiKey || !googleSheetId) {
-      toast({
-        title: 'שגיאה',
-        description: 'נא למלא את כל השדות',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    setSyncing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('sync-google-sheets', {
-        body: { 
-          apiKey: googleApiKey,
-          sheetId: googleSheetId 
-        }
-      });
-
-      if (error) throw error;
-
-      setLastSync(new Date().toLocaleString('he-IL'));
-      toast({
-        title: 'סנכרון הושלם',
-        description: 'הנתונים סונכרנו בהצלחה ל-Google Sheets'
-      });
-    } catch (error: any) {
-      console.error('Sync error:', error);
-      toast({
-        title: 'שגיאת סנכרון',
-        description: error.message || 'לא הצלחנו לסנכרן עם Google Sheets',
-        variant: 'destructive'
-      });
-    } finally {
-      setSyncing(false);
-    }
+    // Sync functionality removed - Google Sheets is now the primary database
+    toast({
+      title: 'מידע',
+      description: 'הנתונים כבר מאוחסנים ב-Google Sheets. אין צורך בסנכרון נוסף.'
+    });
   };
 
   useEffect(() => {

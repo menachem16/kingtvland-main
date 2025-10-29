@@ -50,29 +50,76 @@ class GoogleSheetsClient {
 
   constructor() {
     this.sheetsUrl = GOOGLE_SHEETS_SCRIPT_URL;
+    
+    // Debug logging
     if (!this.sheetsUrl) {
-      console.warn('Google Sheets Script URL not configured');
+      console.error('❌ VITE_GOOGLE_SHEETS_SCRIPT_URL לא מוגדר!');
+      console.error('הוסף את המשתנה ל-.env ובסביבת Netlify');
+    } else {
+      console.log('✅ Google Sheets URL מוגדר:', this.sheetsUrl.replace(/\/exec.*$/, '/exec'));
     }
   }
 
   // Authentication methods
   async signIn(email: string, password: string): Promise<{ user: GoogleSheetsUser | null; error: any }> {
     if (!this.sheetsUrl) {
-      return { user: null, error: 'Google Sheets URL not configured' };
+      return { 
+        user: null, 
+        error: { 
+          message: 'Google Sheets URL לא מוגדר. בדוק את משתנה הסביבה VITE_GOOGLE_SHEETS_SCRIPT_URL' 
+        } 
+      };
     }
 
     try {
       const url = `${this.sheetsUrl}?action=signin&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
-      const response = await fetch(url);
+      console.log('🔐 מנסה להתחבר ל-Google Sheets');
+      console.log('📤 URL:', url.replace(/password=[^&]*/, 'password=***'));
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        mode: 'cors',
+      });
+      
+      console.log('📥 Response status:', response.status, response.statusText);
       
       if (!response.ok) {
-        throw new Error('Authentication failed');
+        const errorText = await response.text();
+        console.error('❌ Response error:', errorText);
+        return { 
+          user: null, 
+          error: { 
+            message: `HTTP ${response.status}: ${errorText || 'Authentication failed'}` 
+          } 
+        };
+      }
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        const text = await response.text();
+        console.error('❌ Expected JSON but got:', contentType);
+        console.error('Response text:', text.substring(0, 200));
+        return { 
+          user: null, 
+          error: { 
+            message: 'Server returned non-JSON response. Check CORS and Google Apps Script settings.' 
+          } 
+        };
       }
 
       const result = await response.json();
+      console.log('✅ Response received:', result.success ? 'Success' : 'Failed');
+      
+      if (!result.success) {
+        console.error('❌ Authentication failed:', result.message);
+        return { user: null, error: { message: result.message || 'Authentication failed' } };
+      }
 
       if (result.success && result.data) {
         const userData = result.data;
+        console.log('👤 User data received:', Object.keys(userData));
+        
         const user: GoogleSheetsUser = {
           id: userData['מזהה'] || userData['ID'] || userData['id'] || '',
           email: userData['אימייל'] || userData['Email'] || email,
@@ -80,35 +127,49 @@ class GoogleSheetsClient {
           lastName: userData['שם משפחה'] || userData['Last Name'] || '',
           phone: userData['טלפון'] || userData['Phone'] || null,
           avatarUrl: userData['תמונת פרופיל'] || userData['Avatar'] || null,
-          isAdmin: userData['מנהל'] === true || userData['Admin'] === true || userData['is_admin'] === true,
+          isAdmin: userData['מנהל'] === true || userData['מנהל'] === 'TRUE' || userData['Admin'] === true || userData['is_admin'] === true,
           subscriptionPlan: userData['תוכנית מנוי'] || userData['Subscription Plan'] || undefined,
           subscriptionEndDate: userData['תאריך סיום'] || userData['End Date'] || undefined,
           totalRevenue: userData['סה"כ הכנסות'] || userData['Total Revenue'] || undefined,
           joinDate: userData['תאריך הצטרפות'] || userData['Join Date'] || undefined,
           orderCount: userData['מספר הזמנות'] || userData['Order Count'] || undefined,
         };
+        
+        console.log('✅ User authenticated:', user.email);
         return { user, error: null };
       } else {
-        return { user: null, error: result.message || 'Authentication failed' };
+        return { user: null, error: { message: result.message || 'Authentication failed' } };
       }
-    } catch (error) {
-      console.error('Sign in error:', error);
-      return { user: null, error };
+    } catch (error: any) {
+      console.error('❌ Sign in error:', error);
+      return { 
+        user: null, 
+        error: { 
+          message: error.message || 'Network error. Check console for details.' 
+        } 
+      };
     }
   }
 
   async signUp(email: string, password: string, firstName: string, lastName: string): Promise<{ user: GoogleSheetsUser | null; error: any }> {
     if (!this.sheetsUrl) {
-      return { user: null, error: 'Google Sheets URL not configured' };
+      return { 
+        user: null, 
+        error: { 
+          message: 'Google Sheets URL לא מוגדר' 
+        } 
+      };
     }
 
     try {
-      const url = `${this.sheetsUrl}`;
-      const response = await fetch(url, {
+      console.log('📝 מנסה להירשם:', email);
+      
+      const response = await fetch(this.sheetsUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        mode: 'cors',
         body: JSON.stringify({
           action: 'signup',
           email,
@@ -118,7 +179,22 @@ class GoogleSheetsClient {
         }),
       });
 
+      console.log('📥 Signup response status:', response.status);
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        const text = await response.text();
+        console.error('❌ Expected JSON but got:', contentType);
+        return { 
+          user: null, 
+          error: { 
+            message: 'Server returned non-JSON response' 
+          } 
+        };
+      }
+
       const result = await response.json();
+      console.log('✅ Signup response:', result.success ? 'Success' : 'Failed');
 
       if (result.success && result.data) {
         const userData = result.data;
@@ -129,15 +205,27 @@ class GoogleSheetsClient {
           lastName,
           phone: null,
           avatarUrl: null,
-          isAdmin: false,
+          isAdmin: userData.isAdmin || false,
         };
+        console.log('✅ User registered:', user.email);
         return { user, error: null };
       } else {
-        return { user: null, error: result.message || 'Registration failed' };
+        console.error('❌ Registration failed:', result.message);
+        return { 
+          user: null, 
+          error: { 
+            message: result.message || 'Registration failed' 
+          } 
+        };
       }
-    } catch (error) {
-      console.error('Sign up error:', error);
-      return { user: null, error };
+    } catch (error: any) {
+      console.error('❌ Sign up error:', error);
+      return { 
+        user: null, 
+        error: { 
+          message: error.message || 'Network error' 
+        } 
+      };
     }
   }
 

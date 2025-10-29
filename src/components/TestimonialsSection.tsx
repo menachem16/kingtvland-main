@@ -1,9 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Star } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { googleSheets } from '@/integrations/google-sheets/client';
-import { Skeleton } from '@/components/ui/skeleton';
 
 interface Testimonial {
   id: string;
@@ -19,37 +16,44 @@ interface TestimonialsSummary {
   total_reviews: number;
 }
 
-const TestimonialsSection = () => {
-  const { data: testimonials, isLoading: testimonialsLoading } = useQuery({
-    queryKey: ['testimonials'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('testimonials')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
-      
-      if (error) throw error;
-      return data as Testimonial[];
-    },
-  });
+// Static testimonials data
+const defaultTestimonials: Testimonial[] = [
+  {
+    id: '1',
+    name: 'דוד כהן',
+    initials: 'דכ',
+    location: 'תל אביב',
+    rating: 5,
+    text: 'שירות מעולה ואיכות שידור מצוינת. ממליץ מאוד!'
+  },
+  {
+    id: '2',
+    name: 'שרה לוי',
+    initials: 'של',
+    location: 'ירושלים',
+    rating: 5,
+    text: 'מבחר ערוצים מדהים ותמיכה מקצועית. בדיוק מה שחיפשתי.'
+  },
+  {
+    id: '3',
+    name: 'משה דוד',
+    initials: 'מד',
+    location: 'חיפה',
+    rating: 5,
+    text: 'השירות הכי טוב שהיה לי. לא חוזר לשירות אחר!'
+  },
+];
 
-  const { data: summary } = useQuery({
-    queryKey: ['testimonials-summary'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('site_settings')
-        .select('value')
-        .eq('key', 'testimonials_summary')
-        .maybeSingle();
-      
-      if (error) throw error;
-      if (!data) return { rating: 4.9, total_reviews: 2500 };
-      
-      const value = data.value as { rating: number; total_reviews: number };
-      return value;
-    },
-  });
+const defaultSummary: TestimonialsSummary = {
+  rating: 4.9,
+  total_reviews: 2500
+};
+
+const TestimonialsSection = () => {
+  // Use static data instead of Supabase
+  const testimonials = defaultTestimonials;
+  const testimonialsLoading = false;
+  const summary = defaultSummary;
   return (
     <section className="py-20 px-4 bg-muted/30">
       <div className="container mx-auto">

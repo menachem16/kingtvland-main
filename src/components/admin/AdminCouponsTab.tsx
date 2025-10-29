@@ -50,13 +50,9 @@ const AdminCouponsTab = () => {
 
   const fetchCoupons = async () => {
     try {
-      const { data, error } = await supabase
-        .from('coupons')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setCoupons(data || []);
+      // TODO: Implement coupon fetching from Google Sheets
+      // For now, return empty array
+      setCoupons([]);
     } catch (error) {
       console.error('Error fetching coupons:', error);
       toast({

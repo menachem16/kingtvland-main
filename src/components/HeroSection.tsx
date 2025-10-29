@@ -2,51 +2,21 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Crown, Play, Users, Zap, LucideIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
-import { googleSheets } from '@/integrations/google-sheets/client';
-
-interface HeroStats {
-  customers: string;
-  channels: string;
-  quality: string;
-  support: string;
-}
-
-const iconMap: Record<string, LucideIcon> = {
-  Users,
-  Play,
-  Zap,
-};
-
 const HeroSection = () => {
   const { user, profile } = useAuth();
 
-  const { data: heroStats } = useQuery({
-    queryKey: ['hero-stats'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('site_settings')
-        .select('value')
-        .eq('key', 'hero_stats')
-        .maybeSingle();
-      
-      if (error) throw error;
-      if (!data) return {
-        customers: '10,000+',
-        channels: '500+',
-        quality: '4K',
-        support: '24/7'
-      };
-      
-      const value = data.value as { customers: string; channels: string; quality: string; support: string };
-      return value;
-    },
-  });
+  // Use default stats instead of Supabase
+  const heroStats = {
+    customers: '10,000+',
+    channels: '500+',
+    quality: '4K',
+    support: '24/7'
+  };
 
   const stats = [
-    { icon: Users, label: 'לקוחות מרוצים', value: heroStats?.customers || '10,000+' },
-    { icon: Play, label: 'ערוצים', value: heroStats?.channels || '500+' },
-    { icon: Zap, label: 'איכות', value: heroStats?.quality || '4K' },
+    { icon: Users, label: 'לקוחות מרוצים', value: heroStats.customers },
+    { icon: Play, label: 'ערוצים', value: heroStats.channels },
+    { icon: Zap, label: 'איכות', value: heroStats.quality },
   ];
 
   return (
