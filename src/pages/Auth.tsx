@@ -43,8 +43,8 @@ const Auth = () => {
     if (error) {
       toast({
         title: 'שגיאה בהתחברות',
-        description: error.message === 'Invalid login credentials' 
-          ? 'פרטי ההתחברות שגויים' 
+        description: /Invalid email or password/i.test(error.message)
+          ? 'פרטי ההתחברות שגויים'
           : 'אירעה שגיאה בהתחברות',
         variant: 'destructive',
       });

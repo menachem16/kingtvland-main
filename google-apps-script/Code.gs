@@ -122,6 +122,7 @@ function handleSignIn(e) {
     
     const emailColumnIndex = headers.indexOf('אימייל') !== -1 ? headers.indexOf('אימייל') : headers.indexOf('Email');
     const passwordColumnIndex = headers.indexOf('סיסמה') !== -1 ? headers.indexOf('סיסמה') : headers.indexOf('Password');
+    const saltColumnIndex = headers.indexOf('Password Salt');
     
     if (emailColumnIndex === -1) {
       return createErrorResponse('Email column not found. Please add "אימייל" or "Email" column to your sheet.');
@@ -134,10 +135,19 @@ function handleSignIn(e) {
     // Find user row
     for (let i = 1; i < data.length; i++) {
       const rowEmail = data[i][emailColumnIndex];
-      const rowPassword = data[i][passwordColumnIndex];
+      const rowPassword = passwordColumnIndex !== -1 ? data[i][passwordColumnIndex] : '';
+      const rowSalt = saltColumnIndex !== -1 ? data[i][saltColumnIndex] : '';
       
-      if (rowEmail && rowEmail.toString().trim().toLowerCase() === email.toLowerCase() && 
-          rowPassword && rowPassword.toString() === password) {
+      if (rowEmail && rowEmail.toString().trim().toLowerCase() === email.toLowerCase()) {
+        // If salt exists, compare hash; else fallback to plain text comparison
+        let passwordMatches = false;
+        if (rowSalt) {
+          const candidateHash = computePasswordHash(password, rowSalt);
+          passwordMatches = rowPassword && rowPassword.toString() === candidateHash;
+        } else {
+          passwordMatches = rowPassword && rowPassword.toString() === password;
+        }
+        if (!passwordMatches) continue;
         const userData = {};
         headers.forEach((header, index) => {
           // Convert date objects to ISO string
@@ -183,7 +193,7 @@ function handleSignUp(requestData) {
     const headers = data.length > 0 ? data[0] : [];
     
     // Ensure headers exist (extended schema)
-    const requiredHeaders = ['מזהה','שם פרטי','שם משפחה','אימייל','סיסמה','טלפון','מנהל','תאריך הצטרפות','שם משתמש','סיסמת התחברות','נוצר בתאריך','המנוי מסתיים','ימים שנשארו','סוג מנוי'];
+    const requiredHeaders = ['מזהה','שם פרטי','שם משפחה','אימייל','סיסמה','Password Salt','טלפון','מנהל','תאריך הצטרפות','שם משתמש','סיסמת התחברות','נוצר בתאריך','המנוי מסתיים','ימים שנשארו','סוג מנוי'];
     if (headers.length === 0) {
       sheet.appendRow(requiredHeaders);
       requiredHeaders.forEach(h => headers.push(h));
@@ -220,6 +230,7 @@ function handleSignUp(requestData) {
     const lastNameColumnIndex = headers.indexOf('שם משפחה') !== -1 ? headers.indexOf('שם משפחה') : headers.indexOf('Last Name');
     const emailColIndex = headers.indexOf('אימייל') !== -1 ? headers.indexOf('אימייל') : headers.indexOf('Email');
     const passwordColIndex = headers.indexOf('סיסמה') !== -1 ? headers.indexOf('סיסמה') : headers.indexOf('Password');
+    const saltColIndex = headers.indexOf('Password Salt');
     const dateColumnIndex = headers.indexOf('תאריך הצטרפות');
     const adminColumnIndex = headers.indexOf('מנהל');
     const phoneColumnIndex = headers.indexOf('טלפון');
@@ -236,7 +247,11 @@ function handleSignUp(requestData) {
     if (firstNameColumnIndex !== -1) rowData[firstNameColumnIndex] = firstName;
     if (lastNameColumnIndex !== -1) rowData[lastNameColumnIndex] = lastName;
     if (emailColIndex !== -1) rowData[emailColIndex] = email;
-    if (passwordColIndex !== -1) rowData[passwordColIndex] = password;
+    // Hash and store password
+    const salt = generateSalt();
+    const passwordHash = computePasswordHash(password, salt);
+    if (passwordColIndex !== -1) rowData[passwordColIndex] = passwordHash;
+    if (saltColIndex !== -1) rowData[saltColIndex] = salt;
     if (dateColumnIndex !== -1) rowData[dateColumnIndex] = joinDate;
     if (adminColumnIndex !== -1) rowData[adminColumnIndex] = isAdmin;
     if (phoneColumnIndex !== -1) rowData[phoneColumnIndex] = '';
@@ -280,9 +295,30 @@ function handleGetSubscription(e) {
       return createErrorResponse('UserId is required');
     }
     
-    // This would query the subscriptions sheet
-    // For now, return null
-    return createSuccessResponse(null);
+    const sheet = ensureSheetWithHeaders('Subscriptions', ['id','user_id','plan_id','status','start_date','end_date']);
+    const values = sheet.getDataRange().getValues();
+    if (values.length <= 1) return createSuccessResponse(null);
+    const headers = values[0];
+    const userIdx = headers.indexOf('user_id');
+    const rows = [];
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][userIdx] && values[i][userIdx].toString() === userId.toString()) {
+        const obj = {};
+        headers.forEach((h, idx) => {
+          let v = values[i][idx];
+          if (v instanceof Date) v = v.toISOString();
+          obj[h] = v;
+        });
+        rows.push(obj);
+      }
+    }
+    if (rows.length === 0) return createSuccessResponse(null);
+    rows.sort((a, b) => {
+      if (a.status === 'active' && b.status !== 'active') return -1;
+      if (a.status !== 'active' && b.status === 'active') return 1;
+      return new Date(b.end_date || 0).getTime() - new Date(a.end_date || 0).getTime();
+    });
+    return createSuccessResponse(rows[0]);
   } catch (error) {
     Logger.log('Error in handleGetSubscription: ' + error.toString());
     return createErrorResponse('Error: ' + error.toString());
@@ -578,10 +614,13 @@ function handleGetUserProfile(e) {
 function handleUpdateProfile(data) {
   try {
     const userId = data.userId;
-    const updates = data.updates;
+    let updates = data.updates;
     
     if (!userId || !updates) {
       return createErrorResponse('UserId and updates are required');
+    }
+    if (typeof updates === 'string') {
+      try { updates = JSON.parse(updates); } catch (e) {}
     }
     
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
@@ -638,9 +677,16 @@ function handleUpdateProfile(data) {
 // Create Subscription Handler
 function handleCreateSubscription(data) {
   try {
-    const { userId, planId, startDate, endDate } = data;
-    // Implementation here
-    return createSuccessResponse({ id: Utilities.getUuid() });
+    const { userId, planId, startDate, endDate, status } = data;
+    if (!userId || !planId) return createErrorResponse('userId and planId are required');
+    const sheet = ensureSheetWithHeaders('Subscriptions', ['id','user_id','plan_id','status','start_date','end_date']);
+    const id = Utilities.getUuid();
+    const now = new Date();
+    const start = startDate ? new Date(startDate) : now;
+    const end = endDate ? new Date(endDate) : '';
+    const row = [id, userId, planId, status || 'active', start, end];
+    sheet.appendRow(row);
+    return createSuccessResponse({ id, user_id: userId, plan_id: planId, status: status || 'active', start_date: start.toISOString(), end_date: end ? new Date(end).toISOString() : '' });
   } catch (error) {
     Logger.log('Error in handleCreateSubscription: ' + error.toString());
     return createErrorResponse('Error: ' + error.toString());
@@ -650,9 +696,14 @@ function handleCreateSubscription(data) {
 // Create Order Handler
 function handleCreateOrder(data) {
   try {
-    const { userId, amount } = data;
-    // Implementation here
-    return createSuccessResponse({ id: Utilities.getUuid() });
+    const { userId, amount, payment_status } = data;
+    if (!userId || amount === undefined || amount === null) return createErrorResponse('userId and amount are required');
+    const sheet = ensureSheetWithHeaders(ORDERS_SHEET, ['id','user_id','amount','payment_status','created_at']);
+    const id = Utilities.getUuid();
+    const now = new Date();
+    const row = [id, userId, Number(amount), payment_status || 'pending', now];
+    sheet.appendRow(row);
+    return createSuccessResponse({ id, user_id: userId, amount: Number(amount), payment_status: payment_status || 'pending', created_at: now.toISOString() });
   } catch (error) {
     Logger.log('Error in handleCreateOrder: ' + error.toString());
     return createErrorResponse('Error: ' + error.toString());
@@ -677,4 +728,22 @@ function createErrorResponse(message) {
   })).setMimeType(ContentService.MimeType.JSON);
   
   return output;
+}
+
+// Password hashing helpers
+function toHexString(bytes) {
+  return bytes.map(function(b) {
+    const s = (b & 0xff).toString(16);
+    return s.length === 1 ? '0' + s : s;
+  }).join('');
+}
+
+function generateSalt() {
+  // 16 random bytes represented in hex (32 chars)
+  return Utilities.getUuid().replace(/-/g, '').slice(0, 32);
+}
+
+function computePasswordHash(password, salt) {
+  const raw = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + ':' + password);
+  return toHexString(raw);
 }

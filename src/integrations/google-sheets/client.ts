@@ -332,20 +332,20 @@ class GoogleSheetsClient {
     }
 
     try {
+      // Use URL-encoded form to avoid CORS preflight
+      const form = new URLSearchParams();
+      form.append('action', 'updateProfile');
+      form.append('userId', userId);
+      form.append('updates', JSON.stringify(updates));
+
       const response = await fetch(this.sheetsUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'updateProfile',
-          userId,
-          updates,
-        }),
+        body: form,
       });
 
-      const result = await response.json();
-      return { success: result.success || false, error: result.error };
+      let result: any;
+      try { result = await response.json(); } catch { result = JSON.parse(await response.text()); }
+      return { success: !!result.success, error: result.success ? undefined : result.message };
     } catch (error) {
       console.error('Update profile error:', error);
       return { success: false, error };
